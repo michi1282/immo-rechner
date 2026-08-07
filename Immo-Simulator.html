@@ -1,0 +1,2485 @@
+<!DOCTYPE html>
+<!--
+  Finanzierungssimulator
+  Gebaut von Michael Holzinger gemeinsam mit Claude (Anthropic)
+-->
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Immobilien-Finanzierungssimulator</title>
+<style>
+  :root{
+    --bg-0:#141b24;
+    --bg-1:#1c2530;
+    --bg-2:#232e3b;
+    --fog:#8b97a6;
+    --fog-dim:#5b6472;
+    --frost:#6fb8d9;
+    --copper:#c9a66b;
+    --success:#7fae94;
+    --text:#eaeef2;
+    --line:#2f3b48;
+    --danger:#c47b6b;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 80% 50% at 20% -10%, rgba(111,184,217,0.08), transparent),
+      radial-gradient(ellipse 60% 40% at 100% 0%, rgba(201,166,107,0.06), transparent),
+      var(--bg-0);
+    color:var(--text);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .shell{
+    max-width:1180px;
+    margin:0 auto;
+    padding:36px 28px 60px;
+  }
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:28px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:20px;
+  }
+  .guide-btn{
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    border:1.5px solid var(--copper);
+    background:rgba(201,166,107,0.12);
+    color:var(--copper);
+    font-family:"Fraunces", Georgia, serif;
+    font-size:16px;
+    font-weight:600;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .guide-btn:hover{ background:rgba(201,166,107,0.25); }
+  .guide-btn.guide-btn-pulse{
+    animation:guidePulse 2.6s ease-out infinite;
+  }
+  @keyframes guidePulse{
+    0%   { box-shadow:0 0 0 0 rgba(201,166,107,0.55); }
+    70%  { box-shadow:0 0 0 9px rgba(201,166,107,0); }
+    100% { box-shadow:0 0 0 0 rgba(201,166,107,0); }
+  }
+  .guide-arrow{
+    width:26px;
+    height:26px;
+    color:var(--copper);
+    flex-shrink:0;
+    animation:guideArrowNudge 1.5s ease-in-out infinite;
+  }
+  @keyframes guideArrowNudge{
+    0%, 100% { transform:translateX(0); opacity:0.75; }
+    50%      { transform:translateX(7px); opacity:1; }
+  }
+  #kurzanleitungPanel{
+    margin-bottom:24px;
+  }
+  .kurzanleitung-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .kurzanleitung-liste{
+    margin:16px 0 0;
+    padding-left:20px;
+    color:var(--fog);
+    font-size:13px;
+    line-height:2;
+  }
+  .kurzanleitung-liste strong{ color:var(--text); }
+  .house-icon, .apartment-icon{
+    width:52px;
+    height:52px;
+    flex-shrink:0;
+  }
+  .icon-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-shrink:0;
+  }
+  .brand{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .pdf-only{ display:none; }
+  .eyebrow{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--frost);
+  }
+  h1{
+    font-family:"Fraunces", Georgia, serif;
+    font-weight:500;
+    font-size:28px;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  .layout{
+    display:grid;
+    grid-template-columns:340px minmax(0, 1fr);
+    gap:24px;
+  }
+  @media (max-width: 880px){
+    .layout{grid-template-columns:minmax(0, 1fr);}
+  }
+  .left-col{
+    display:flex;
+    flex-direction:column;
+    gap:24px;
+    min-width:0;
+  }
+  .results{
+    min-width:0;
+  }
+  .panel{
+    background:var(--bg-1);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:22px;
+  }
+  .panel h2{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.1em;
+    color:var(--fog);
+    margin:0 0 18px;
+    font-weight:500;
+  }
+  .field{
+    margin-bottom:18px;
+  }
+  /* Native Auf/Ab-Pfeile bei Zahlenfeldern entfernen - überdecken sonst Ziffern in schmalen Feldern */
+  input[type="number"]{
+    -moz-appearance:textfield;
+  }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button{
+    -webkit-appearance:none;
+    margin:0;
+  }
+  .field label{
+    display:flex;
+    justify-content:space-between;
+    font-size:13px;
+    color:var(--fog);
+    margin-bottom:8px;
+  }
+  .field label span.val{
+    color:var(--text);
+    font-family:"IBM Plex Mono", monospace;
+    font-weight:500;
+  }
+  .field input[type="number"], .field input[type="text"], .field select{
+    width:100%;
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    color:var(--text);
+    border-radius:8px;
+    padding:10px 12px;
+    font-family:"IBM Plex Mono", monospace;
+    font-size:14px;
+  }
+  .field select{
+    appearance:none;
+    -webkit-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0L5 6L10 0Z' fill='%238b97a6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 12px center;
+    padding-right:32px;
+  }
+  .field input[type="number"]:focus, .field input[type="text"]:focus, .field select:focus{
+    outline:none;
+    border-color:var(--frost);
+  }
+  .field input.input-error{
+    border-color:var(--danger) !important;
+  }
+  .field-error{
+    font-size:11px;
+    color:var(--danger);
+    margin-top:6px;
+    line-height:1.4;
+  }
+  .field input[type="range"]{
+    width:100%;
+    accent-color:var(--frost);
+    margin-top:4px;
+    height:28px;
+  }
+  #notizenFeld{
+    width:100%;
+    min-height:110px;
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    color:var(--text);
+    border-radius:8px;
+    padding:12px;
+    font-family:"Inter", sans-serif;
+    font-size:13px;
+    line-height:1.5;
+    resize:vertical;
+  }
+  #notizenFeld:focus{
+    outline:none;
+    border-color:var(--frost);
+  }
+  #notizenFeld::placeholder{
+    color:var(--fog-dim);
+  }
+  .field .unit{
+    font-size:11px;
+    color:var(--fog-dim);
+    margin-top:6px;
+  }
+  .hint{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    font-size:11px;
+    color:var(--fog-dim);
+    margin-top:8px;
+    line-height:1.4;
+  }
+  .btn-suggest{
+    flex-shrink:0;
+    background:rgba(111,184,217,0.1);
+    border:1px solid rgba(111,184,217,0.35);
+    color:var(--frost);
+    font-family:"IBM Plex Mono", monospace;
+    font-size:11px;
+    padding:5px 9px;
+    border-radius:6px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .btn-suggest:hover{ background:rgba(111,184,217,0.2); }
+  .btn-suggest:disabled{
+    opacity:0.35;
+    cursor:not-allowed;
+  }
+  .btn-suggest:disabled:hover{ background:rgba(111,184,217,0.1); }
+  .btn-compact{
+    font-size:10px;
+    padding:4px 7px;
+  }
+  .chip-row{
+    display:flex;
+    gap:6px;
+    margin-top:10px;
+  }
+  .chip{
+    flex:1;
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    color:var(--fog);
+    font-family:"IBM Plex Mono", monospace;
+    font-size:12px;
+    padding:7px 0;
+    border-radius:7px;
+    cursor:pointer;
+  }
+  .chip:hover{ border-color:var(--frost); color:var(--text); }
+  .chip.active{
+    background:rgba(111,184,217,0.15);
+    border-color:var(--frost);
+    color:var(--frost);
+  }
+  .link-row{
+    display:flex;
+    justify-content:space-between;
+    margin-top:8px;
+  }
+  .toggle-row-wrap{
+    justify-content:space-between;
+    flex-wrap:wrap;
+    row-gap:8px;
+    column-gap:16px;
+  }
+  .link-toggle{
+    background:none;
+    border:none;
+    padding:0;
+    font-size:11px;
+    color:var(--frost);
+    text-decoration:underline;
+    text-decoration-color:rgba(111,184,217,0.4);
+    cursor:pointer;
+    font-family:"Inter", sans-serif;
+  }
+  .link-toggle:hover{ text-decoration-color:var(--frost); }
+  .zins-suggestion{
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:10px 12px;
+    margin-top:10px;
+  }
+  .zins-suggestion-text{
+    font-size:11px;
+    color:var(--fog-dim);
+    line-height:1.55;
+    margin:0 0 10px;
+  }
+  .zins-suggestion-footer{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .secondary-links{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:8px;
+    margin-top:12px;
+  }
+  .badge-expert{
+    display:inline-block;
+    font-family:"IBM Plex Mono", monospace;
+    font-size:9px;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    color:var(--copper);
+    border:1px solid rgba(201,166,107,0.4);
+    background:rgba(201,166,107,0.08);
+    border-radius:4px;
+    padding:1px 5px;
+    margin-left:6px;
+    text-decoration:none;
+    vertical-align:middle;
+  }
+  .expert-toggle{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    width:100%;
+    border:1px solid rgba(201,166,107,0.35);
+    background:rgba(201,166,107,0.05);
+    border-radius:8px;
+    padding:9px 12px;
+    font-size:12px;
+    color:var(--frost);
+    cursor:pointer;
+    font-family:"Inter", sans-serif;
+    text-align:left;
+  }
+  .expert-toggle:hover{
+    background:rgba(201,166,107,0.1);
+    border-color:var(--copper);
+  }
+  .expert-toggle .badge-expert{ margin-left:0; }
+  .expert-toggle #rateEditorChevron{ margin-left:auto; color:var(--fog-dim); }
+  .rate-editor{
+    margin-top:12px;
+    padding:12px;
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    border-radius:8px;
+  }
+  .rate-editor-grid{
+    display:grid;
+    grid-template-columns:repeat(5, minmax(0, 1fr));
+    gap:6px;
+  }
+  .rate-editor-grid label{
+    display:flex;
+    flex-direction:column;
+    font-size:10px;
+    color:var(--fog-dim);
+    gap:4px;
+    text-align:center;
+  }
+  .rate-editor-grid input{
+    width:100%;
+    background:var(--bg-0);
+    border:1px solid var(--line);
+    color:var(--text);
+    border-radius:6px;
+    padding:6px 4px;
+    font-family:"IBM Plex Mono", monospace;
+    font-size:11px !important;
+    text-align:center;
+  }
+  .rate-editor-actions{
+    display:flex;
+    gap:8px;
+    margin-top:10px;
+  }
+  .rate-editor-actions .btn-suggest{ flex:1; text-align:center; }
+  .note{
+    font-size:11px;
+    color:var(--fog-dim);
+    line-height:1.5;
+  }
+  .note strong{ color:var(--text); }
+  .rate-editor .note{
+    font-size:10px;
+    color:var(--fog-dim);
+    margin-top:8px;
+    line-height:1.4;
+  }
+  .btn-primary{
+    width:100%;
+    background:var(--frost);
+    color:#141b24;
+    border:none;
+    border-radius:8px;
+    padding:11px;
+    font-family:"IBM Plex Mono", monospace;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    margin-top:4px;
+  }
+  .btn-primary:hover{ filter:brightness(1.08); }
+  .btn-primary:disabled{ opacity:0.4; cursor:not-allowed; }
+  .tour-tooltip{
+    position:fixed;
+    z-index:10000;
+    max-width:320px;
+    background:var(--bg-1);
+    border:1px solid var(--frost);
+    border-radius:10px;
+    padding:16px;
+    box-shadow:0 12px 32px rgba(0,0,0,0.5);
+  }
+  .tour-tooltip-step{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:11px;
+    color:var(--frost);
+    margin-bottom:6px;
+    letter-spacing:0.05em;
+  }
+  .tour-tooltip-title{
+    font-family:"Fraunces", Georgia, serif;
+    font-size:18px;
+    color:var(--text);
+    margin-bottom:8px;
+  }
+  .tour-tooltip-text{
+    font-size:13px;
+    color:var(--fog);
+    line-height:1.5;
+    margin-bottom:14px;
+  }
+  .tour-tooltip-actions{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .projekt-liste{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin-top:16px;
+  }
+  .projekt-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:9px 10px;
+  }
+  .projekt-item .info{
+    min-width:0;
+  }
+  .projekt-item .name{
+    font-size:13px;
+    color:var(--text);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .projekt-item .meta{
+    font-size:11px;
+    color:var(--fog-dim);
+    font-family:"IBM Plex Mono", monospace;
+  }
+  .projekt-item .actions{
+    display:flex;
+    gap:6px;
+    flex-shrink:0;
+  }
+  .projekt-item button{
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--fog);
+    font-size:11px;
+    padding:5px 8px;
+    border-radius:6px;
+    cursor:pointer;
+    font-family:"IBM Plex Mono", monospace;
+  }
+  .projekt-item button.load-btn{ color:var(--frost); border-color:rgba(111,184,217,0.35); }
+  .projekt-item button.del-btn:hover{ color:var(--danger); border-color:var(--danger); }
+  .projekt-empty{
+    font-size:12px;
+    color:var(--fog-dim);
+    text-align:center;
+    padding:14px 0;
+  }
+  .credit-line{
+    margin-top:22px;
+    padding-top:18px;
+    border-top:1px solid var(--line);
+    font-size:13px;
+    color:var(--fog);
+    display:flex;
+    justify-content:space-between;
+  }
+  .credit-line strong{
+    color:var(--frost);
+    font-family:"IBM Plex Mono", monospace;
+    font-weight:500;
+  }
+  .summary-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));
+    gap:14px;
+    margin-bottom:22px;
+  }
+  @media (max-width: 700px){
+    .summary-grid{grid-template-columns:repeat(2, 1fr);}
+  }
+  .stat{
+    background:var(--bg-1);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:16px 16px;
+  }
+  .stat .label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--fog-dim);
+    margin-bottom:8px;
+    font-family:"IBM Plex Mono", monospace;
+  }
+  .stat .value{
+    font-family:"Fraunces", Georgia, serif;
+    font-size:22px;
+    color:var(--text);
+  }
+  .stat.accent .value{ color:var(--copper); }
+  .beleihung-info{
+    font-size:12px;
+    line-height:1.55;
+    color:var(--fog);
+    background:var(--bg-1);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:16px 18px;
+    margin-bottom:22px;
+  }
+  .beleihung-info strong{ color:var(--text); }
+  .beleihung-info table{ font-size:12px; }
+  .beleihung-info thead th{ padding:6px 8px; }
+  .beleihung-info tbody td{ padding:6px 8px; }
+  .sub-label{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--fog-dim);
+    margin-bottom:8px;
+  }
+  .projekt-section-divider{
+    border-top:1px solid var(--line);
+    margin:18px 0 14px;
+  }
+  .info-box{
+    font-size:12px;
+    line-height:1.55;
+    color:var(--fog);
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:12px 14px;
+    margin-top:8px;
+  }
+  .info-box strong{ color:var(--text); }
+  .split-zins-input{
+    width:64px;
+    background:var(--bg-0);
+    border:1px solid var(--line);
+    color:var(--text);
+    border-radius:6px;
+    padding:5px 6px;
+    font-family:"IBM Plex Mono", monospace;
+    font-size:12px;
+    text-align:center;
+  }
+  .split-zins-input:focus{ outline:none; border-color:var(--frost); }
+  #splitTable td{ vertical-align:middle; }
+  .split-panel{
+    margin-bottom:22px;
+    border-color:rgba(201,166,107,0.35);
+    background:
+      linear-gradient(180deg, rgba(201,166,107,0.06), transparent 60%),
+      var(--bg-1);
+  }
+  .split-panel-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:18px;
+    flex-wrap:wrap;
+  }
+  .switch-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:12px;
+    color:var(--fog);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .switch-row input[type="checkbox"]{
+    appearance:none;
+    -webkit-appearance:none;
+    width:34px;
+    height:19px;
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    border-radius:10px;
+    position:relative;
+    cursor:pointer;
+    flex-shrink:0;
+    transition:background 0.15s;
+  }
+  .switch-row input[type="checkbox"]::before{
+    content:'';
+    position:absolute;
+    top:2px;
+    left:2px;
+    width:13px;
+    height:13px;
+    background:var(--fog);
+    border-radius:50%;
+    transition:transform 0.15s, background 0.15s;
+  }
+  .switch-row input[type="checkbox"]:checked{
+    background:rgba(201,166,107,0.35);
+    border-color:var(--copper);
+  }
+  .switch-row input[type="checkbox"]:checked::before{
+    transform:translateX(15px);
+    background:var(--copper);
+  }
+  .chart-panel{
+    margin-bottom:20px;
+  }
+  .chart-panel .caption{
+    font-size:12px;
+    color:var(--fog-dim);
+    margin-top:10px;
+    font-family:"IBM Plex Mono", monospace;
+  }
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+  }
+  thead th{
+    text-align:right;
+    font-family:"IBM Plex Mono", monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--fog-dim);
+    padding:8px 10px;
+    border-bottom:1px solid var(--line);
+    font-weight:500;
+  }
+  thead th:first-child, tbody td:first-child{ text-align:left; }
+  tbody td{
+    text-align:right;
+    padding:8px 10px;
+    border-bottom:1px solid rgba(47,59,72,0.5);
+    font-family:"IBM Plex Mono", monospace;
+    color:var(--fog);
+  }
+  tbody tr:hover{ background:rgba(111,184,217,0.05); }
+  tbody td:first-child{ color:var(--text); }
+  .table-wrap{
+    max-height:900px;
+    overflow-y:auto;
+    overflow-x:auto;
+    border-radius:10px;
+    -webkit-overflow-scrolling:touch;
+  }
+  table{ min-width:520px; }
+  .table-wrap::-webkit-scrollbar{ width:8px; height:8px; }
+  .table-wrap::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
+  footer{
+    margin-top:30px;
+    font-size:11px;
+    color:var(--fog-dim);
+    text-align:center;
+  }
+  @media (max-width: 480px){
+    .shell{ padding:20px 14px 44px; }
+    h1{ font-size:22px; }
+    .panel{ padding:16px; }
+    .stat .value{ font-size:19px; }
+    .house-icon, .apartment-icon{ width:32px; height:32px; }
+    .icon-row{ gap:6px; }
+  }
+
+  @media print{
+    @page{ margin:11mm; }
+    *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    body{ background:#fff !important; color:#111 !important; font-size:12px; }
+    .shell{ max-width:100%; padding:0; }
+    .icon-row{ display:flex !important; }
+    .house-icon, .apartment-icon{ width:48px !important; height:48px !important; }
+    header{
+      border-bottom:2px solid #111;
+      margin-bottom:14px;
+      padding-bottom:12px;
+    }
+    h1{ font-size:22px !important; color:#111 !important; }
+    .eyebrow{ color:#666 !important; font-size:9.5px !important; }
+    .pdf-only{
+      display:block !important;
+      font-size:10.5px;
+      font-family:"IBM Plex Mono", monospace;
+      letter-spacing:0.02em;
+      color:#555 !important;
+      margin-top:5px;
+    }
+    .pdf-only strong{ color:#111 !important; }
+    .layout{ display:block; }
+    .left-col > .panel:nth-of-type(2){ display:none !important; } /* Projekte-Panel */
+    #btnPdfExport{ display:none !important; }
+    #kurzanleitungPanel, .guide-btn, .guide-arrow{ display:none !important; }
+    /* Reine Bedienelemente immer ausblenden - egal ob übergeordneter Bereich gerade auf- oder zugeklappt ist */
+    input[type="range"], .chip-row, .link-row, .hint, .rate-editor,
+    .switch-row, .link-toggle, .btn-primary, .btn-suggest, #splitToggleStatCard, .secondary-links, .zins-suggestion, .expert-toggle{
+      display:none !important;
+    }
+    /* Erklär-/Zusatzboxen: nur zeigen, wenn sie gerade aufgeklappt sind (= tatsächlich genutzt) */
+    .beleihung-info, #sonderkuendigungInfo, #tilgungInfo, #aufschlagErklaerung, #baunebenkostenInfo{
+      break-inside:avoid;
+    }
+    /* Eingabefelder ausblenden - Wert steht schon lesbar im Label daneben */
+    #kaufpreis, #eigenkapital, #zins, #tilgung, #zinsbindung, #sondertilgung, #auszahlungskurs{ display:none !important; }
+    .field{ margin-bottom:14px; }
+    .field label{ margin-bottom:4px; font-size:11px; white-space:nowrap; }
+    .panel{
+      border:1px solid #ccc;
+      background:#fff;
+      box-shadow:none;
+      padding:14px 16px;
+      margin-bottom:10px !important;
+      border-radius:4px;
+    }
+    .panel h2{
+      color:#111 !important;
+      font-size:10px;
+      letter-spacing:0.1em;
+      padding-bottom:6px;
+      margin-bottom:12px !important;
+      border-bottom:1.5px solid #111;
+    }
+    /* Kennzahlen-Kacheln: in den Farben der Icons (Frost-Blau / Kupfer-Gold), weiße Schrift */
+    .summary-grid{ break-inside:avoid; gap:8px; margin-bottom:10px !important; grid-template-columns:repeat(auto-fit, minmax(195px, 1fr)); }
+    .stat{
+      border:none;
+      background:#3f6b82 !important;
+      padding:9px 11px;
+      break-inside:avoid;
+      border-radius:4px;
+    }
+    .stat.accent{ background:#9c7c47 !important; }
+    .stat .label{ font-size:8.5px; margin-bottom:4px; color:rgba(255,255,255,0.8) !important; }
+    .stat .value{ color:#fff !important; font-size:15px; }
+    .field label, .sub-label, .note{ color:#555 !important; }
+    /* Aufgeklappte Erklär-/Rechner-Boxen: dunkles Bildschirm-Design auf hell umstellen */
+    .info-box, .beleihung-info{
+      background:#fafafa !important;
+      border:1px solid #ccc !important;
+      color:#333 !important;
+    }
+    .info-box strong, .beleihung-info strong{ color:#111 !important; }
+    .val{ color:#111 !important; font-weight:600; }
+    h1, .credit-line strong{ color:#111 !important; }
+    .credit-line{ color:#111; border-color:#ccc !important; padding:6px 0 !important; }
+    /* Tilgungsplan vollständig zeigen statt nur den sichtbaren Scroll-Ausschnitt */
+    .table-wrap{ max-height:none !important; overflow:visible !important; }
+    table{ break-inside:auto; border-collapse:collapse; width:100%; font-size:10.5px; }
+    tr{ break-inside:avoid; }
+    thead{ display:table-header-group; }
+    thead th{ color:#555 !important; border-bottom:1.5px solid #999 !important; font-size:9px; padding:4px 8px !important; white-space:nowrap; }
+    table, th, td{ color:#111 !important; border-color:#ddd !important; padding:4px 8px !important; }
+    tbody td:first-child{ color:#111 !important; }
+    tbody tr:nth-child(even) td{ background:#f5f5f5; }
+    .split-zins-input{
+      border:none !important; background:transparent !important; color:#111 !important; font-weight:600; padding:2px 0;
+    }
+    .split-panel{ background:#fff; }
+    .chart-panel svg{ break-inside:avoid; max-height:200px; width:auto !important; display:block; margin:0 auto; }
+    .caption{ color:#555 !important; font-size:10px; }
+    #notizenFeld{
+      color:#111 !important;
+      background:#fafafa !important;
+      border:1px solid #ccc !important;
+      resize:none;
+      overflow:hidden;
+      font-size:11px;
+    }
+    footer{
+      color:#888 !important;
+      border-top:1px solid #ccc;
+      padding-top:6px;
+      margin-top:10px;
+      font-size:9px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div class="brand">
+      <div class="eyebrow">Simulation · Annuitätendarlehen für Immobilien</div>
+      <h1>Immobilien-Finanzierungssimulator</h1>
+      <div class="pdf-only" id="pdfProjektTitel"></div>
+    </div>
+    <div class="icon-row">
+      <svg class="guide-arrow" id="guideArrow" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <line x1="2" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M13 5 L20 12 L13 19" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <button type="button" class="guide-btn guide-btn-pulse" id="btnGuideStart" title="Guide durch den Simulator starten">?</button>
+      <svg class="apartment-icon" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect x="10" y="7" width="28" height="33" stroke="#6fb8d9" stroke-width="2.5" fill="none"/>
+        <rect x="14.5" y="12" width="6" height="6" stroke="#6fb8d9" stroke-width="1.6" fill="none"/>
+        <rect x="27.5" y="12" width="6" height="6" stroke="#6fb8d9" stroke-width="1.6" fill="none"/>
+        <rect x="14.5" y="22" width="6" height="6" stroke="#6fb8d9" stroke-width="1.6" fill="none"/>
+        <rect x="27.5" y="22" width="6" height="6" stroke="#6fb8d9" stroke-width="1.6" fill="none"/>
+        <rect x="19.5" y="31" width="9" height="9" stroke="#c9a66b" stroke-width="2" fill="none"/>
+      </svg>
+      <svg class="house-icon" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 22L24 7L42 22" stroke="#c9a66b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <path d="M10 19V40H38V19" stroke="#6fb8d9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <path d="M19 40V27H29V40" stroke="#6fb8d9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+    </div>
+  </header>
+
+  <div class="panel" id="kurzanleitungPanel">
+    <div class="kurzanleitung-header">
+      <h2 style="margin:0;">Kurzanleitung</h2>
+      <button type="button" class="link-toggle" id="btnKurzanleitungToggle">ausblenden ▴</button>
+    </div>
+    <div id="kurzanleitungInhalt">
+      <ol class="kurzanleitung-liste">
+        <li><strong>Kaufpreis &amp; Eigenkapital</strong> eintragen</li>
+        <li><strong>Zinssatz-Vorschlag</strong> prüfen und bei Bedarf übernehmen</li>
+        <li><strong>Zinsbindung</strong> wählen (5/10/15/20 Jahre)</li>
+        <li><strong>Kennzahlen</strong> unten ansehen – Monatliche Rate, Laufzeit, Restschuld</li>
+        <li>Optional: <strong>Splitt-Finanzierung, Beleihung, Baunebenkosten</strong> aufklappen</li>
+        <li><strong>Speichern, exportieren</strong> oder als <strong>PDF</strong> sichern</li>
+      </ol>
+      <div class="note" style="margin-top:10px;">Lieber Schritt für Schritt gezeigt bekommen? Klick oben rechts auf das <strong>„?"</strong> für einen geführten Rundgang.</div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="left-col">
+    <div class="panel" id="angabenPanel">
+      <h2>Angaben</h2>
+
+      <div class="field">
+        <label>Kaufpreis <span class="val" id="kaufpreisVal">450.000 €</span></label>
+        <input type="text" inputmode="numeric" id="kaufpreis" value="450.000">
+        <input type="range" id="kaufpreisRange" min="50000" max="1500000" step="5000" value="450000">
+      </div>
+
+      <div class="field">
+        <label>Eigenkapital <span class="val" id="eigenkapitalVal">90.000 €</span></label>
+        <input type="text" inputmode="numeric" id="eigenkapital" value="90.000">
+        <input type="range" id="eigenkapitalRange" min="0" max="1000000" step="5000" value="90000">
+        <div class="hint">
+          <span>Banken sehen 20–30 % vom Kaufpreis gern, das gibt oft bessere Konditionen.</span>
+          <button type="button" class="btn-suggest" id="btnEkVorschlag">25 % vorschlagen</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Sollzinssatz <span class="val" id="zinsVal">3,80 %</span></label>
+        <input type="number" id="zins" value="3.8" step="0.05" min="0" max="15">
+        <input type="range" id="zinsRange" min="0" max="8" step="0.05" value="3.8">
+
+        <div class="link-row" style="margin-top:10px;">
+          <a href="https://www.drklein.de/aktuelle-bauzinsen.html" target="_blank" rel="noopener" class="link-toggle">Aktuelle Zinsen prüfen ↗</a>
+        </div>
+        <div class="zins-suggestion">
+          <p class="zins-suggestion-text" id="zinsHinweisText">Marktüblich für 10 Jahre fest: ca. 3,7 %.</p>
+          <div class="zins-suggestion-footer">
+            <button type="button" class="btn-suggest" id="btnZinsVorschlag">übernehmen</button>
+            <button type="button" class="link-toggle" id="btnAufschlagErklaerungToggle">Wie kommt das zustande? ▾</button>
+          </div>
+        </div>
+        <div class="info-box" id="aufschlagErklaerung" style="display:none;">
+          Der Vorschlag setzt sich aus zwei Teilen zusammen: dem <strong>Marktzins</strong> für deine gewählte Zinsbindung (aus den Richtwerten unten) plus einem <strong>Beleihungsaufschlag</strong>. Der Aufschlag wird genauso berechnet wie im Tranchen-Rechner bei „Beleihung erklärt": dein Kredit wird gedanklich in Bänder zerlegt (bis 60 % Beleihung: kein Aufschlag, 60–80 %: +0,10 Punkte, 80–90 %: +0,30 Punkte, 90–100 %: +0,60 Punkte, über 100 % Blanko-Anteil: +1,00 Punkte). Je nachdem, wie viel deines Kredits in welchem Band liegt, ergibt sich ein gewichteter Mittelwert – das ist die Zahl, die hier als Aufschlag angezeigt wird. Auch das sind Näherungswerte zur Orientierung, keine echten Bankkonditionen.
+        </div>
+
+        <div class="secondary-links">
+          <button type="button" class="expert-toggle" id="btnRateEditorToggle"><span class="badge-expert">Expertenmodus</span> Richtwerte anpassen <span id="rateEditorChevron">▾</span></button>
+        </div>
+        <div class="rate-editor" id="rateEditor" style="display:none;">
+          <div class="rate-editor-grid">
+            <label>5 J. <input type="number" id="rate5" step="0.05"></label>
+            <label>10 J. <input type="number" id="rate10" step="0.05"></label>
+            <label>15 J. <input type="number" id="rate15" step="0.05"></label>
+            <label>20 J. <input type="number" id="rate20" step="0.05"></label>
+            <label>30 J. <input type="number" id="rate30" step="0.05"></label>
+          </div>
+          <div class="rate-editor-actions">
+            <button type="button" class="btn-suggest" id="btnRatesSave">Speichern</button>
+            <button type="button" class="btn-suggest" id="btnRatesReset">Zurücksetzen</button>
+          </div>
+          <div class="note" id="rateEditorNote">Eigene Werte von der Vergleichsseite eintragen und speichern – wird ab sofort für alle Vorschläge verwendet, bis du zurücksetzt.</div>
+          <div class="note" id="zinsStandHinweis" style="margin-top:8px;">Stand der Vorschlagswerte: Juli 2026</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Anfängliche Tilgung <span class="val" id="tilgungVal">2,00 %</span></label>
+        <input type="number" id="tilgung" value="2" step="0.1" min="0.1" max="10">
+        <input type="range" id="tilgungRange" min="0.5" max="6" step="0.1" value="2">
+        <div class="link-row">
+          <button type="button" class="link-toggle" id="btnTilgungInfoToggle">Was bedeutet das? ▾</button>
+        </div>
+        <div class="info-box" id="tilgungInfo" style="display:none;">
+          Die anfängliche Tilgung ist der Anteil, mit dem du den Kredit im ersten Jahr zusätzlich zu den Zinsen zurückzahlst. <strong>Höhere Tilgung</strong> (z. B. 3 %) bedeutet: höhere Monatsrate, dafür schneller schuldenfrei und weniger Zinskosten insgesamt. <strong>Niedrigere Tilgung</strong> (z. B. 1 %) senkt die Monatsrate, verlängert aber die Laufzeit spürbar. In der Praxis gelten <strong>2–3 %</strong> als solider Richtwert – darunter dauert die Rückzahlung bei aktuellen Zinsen oft mehrere Jahrzehnte.
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Zinsbindung <span class="val" id="zinsbindungVal">10 Jahre</span></label>
+        <input type="number" id="zinsbindung" value="10" step="1" min="1" max="40">
+        <input type="range" id="zinsbindungRange" min="1" max="30" step="1" value="10">
+        <div class="chip-row" id="zinsbindungChipRow">
+          <button type="button" class="chip" data-jahre="5">5 J.</button>
+          <button type="button" class="chip" data-jahre="10">10 J.</button>
+          <button type="button" class="chip" data-jahre="15">15 J.</button>
+          <button type="button" class="chip" data-jahre="20">20 J.</button>
+        </div>
+        <div class="hint" id="sonderkuendigungHinweis" style="display:none;">
+          <span>Nach 10 Jahren Laufzeit darfst du gem. § 489 BGB unabhängig von dieser Zinsbindung mit 6 Monaten Frist kündigen und umschulden.</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Jährliche Sondertilgung <span class="val" id="sondertilgungVal">0 €</span></label>
+        <input type="text" inputmode="numeric" id="sondertilgung" value="0">
+        <input type="range" id="sondertilgungRange" min="0" max="50000" step="500" value="0">
+        <div class="note" id="sondertilgungHinweis" style="margin-top:6px;">Viele Banken erlauben kostenlos bis zu 5–10 % der Darlehenssumme pro Jahr – höhere Beträge können Gebühren auslösen.</div>
+      </div>
+
+      <div class="field" style="margin-bottom:12px;">
+        <label>Auszahlungskurs <span class="val" id="auszahlungskursVal">100 %</span></label>
+        <input type="number" id="auszahlungskurs" value="100" step="0.5" min="80" max="100">
+        <div class="note" style="margin-top:6px;">Bei 100 % wird die volle Darlehenssumme ausgezahlt. Manche Banken zahlen weniger aus (Disagio) – das erhöht den Effektivzins gegenüber dem Sollzins.</div>
+      </div>
+
+      <div class="credit-line">
+        <span>Darlehenssumme</span>
+        <strong id="kreditbetrag">360.000 €</strong>
+      </div>
+      <div class="credit-line">
+        <span>Monatliche Rate</span>
+        <strong id="monatsrate">1.140 €</strong>
+      </div>
+      <div class="credit-line">
+        <span>Effektivzins (ca.)</span>
+        <strong id="effektivzins">3,80 %</strong>
+      </div>
+      <div class="link-row">
+        <button type="button" class="link-toggle" id="btnEffektivzinsErklaerungToggle">Unterschied zu Sollzins? ▾</button>
+      </div>
+      <div class="info-box" id="effektivzinsErklaerung" style="display:none;">
+        Der <strong>Sollzins</strong> ist der reine Zinssatz auf die Darlehenssumme. Der <strong>Effektivzins</strong> (auch effektiver Jahreszins) berücksichtigt zusätzlich den Auszahlungskurs und die Verteilung der Zahlungen über die Zinsbindung – er ist der Wert, den du für einen fairen Vergleich zwischen Angeboten heranziehen solltest. Bei 100 % Auszahlungskurs liegt er nur minimal über dem Sollzins; mit sinkendem Auszahlungskurs steigt er spürbar. Diese Berechnung ist eine Näherung zur Orientierung, keine verbindliche PAngV-Berechnung deiner Bank.
+      </div>
+      <button type="button" class="btn-primary" id="btnPdfExport" style="margin-top:16px;">Als PDF speichern</button>
+    </div>
+
+    <div class="panel" id="projektePanel">
+      <h2>Projekte</h2>
+      <div class="field">
+        <input type="text" id="projektName" placeholder="z. B. „Haus Musterstadt“">
+        <div class="field-error" id="projektNameError" style="display:none;">Bitte einen Projektnamen eingeben, bevor du die PDF erstellst.</div>
+      </div>
+      <button type="button" class="btn-primary" id="btnProjektSpeichern">Simulation speichern</button>
+      <div class="note" style="margin-top:8px;">Speichert lokal in diesem Browser, unter dem Namen von oben.</div>
+
+      <div class="projekt-section-divider"></div>
+      <div class="sub-label">Lokal gespeichert (nur auf diesem Gerät)</div>
+      <div class="field">
+        <select id="projektAuswahl">
+          <option value="">Projekt auswählen…</option>
+        </select>
+      </div>
+      <div class="link-row">
+        <button type="button" class="btn-suggest" id="btnProjektLaden">Laden</button>
+        <button type="button" class="btn-suggest" id="btnProjektLoeschen">Löschen</button>
+      </div>
+
+      <div class="projekt-section-divider"></div>
+      <div class="sub-label">Mit anderen teilen</div>
+      <div class="link-row" style="justify-content:flex-start; gap:10px;">
+        <button type="button" class="btn-suggest btn-compact" id="btnProjektExport">Als Datei exportieren ↓</button>
+        <button type="button" class="btn-suggest btn-compact" id="btnProjektImport">Datei importieren ↑</button>
+      </div>
+      <input type="file" id="projektImportInput" accept="application/json,.json" style="display:none;">
+      <div class="note" style="margin-top:8px;">Export erzeugt eine Datei zum Verschicken (Mail/AirDrop). Die andere Person importiert sie bei sich – inklusive Splitt-Zinssätzen.</div>
+    </div>
+    </div>
+
+    <div class="results">
+      <div class="summary-grid">
+        <div class="stat accent">
+          <div class="label">Monatliche Rate</div>
+          <div class="value" id="statMonatsrate">–</div>
+        </div>
+        <div class="stat">
+          <div class="label">Laufzeit</div>
+          <div class="value" id="statLaufzeit">– Jahre</div>
+        </div>
+        <div class="stat">
+          <div class="label">Zinskosten gesamt</div>
+          <div class="value" id="statZinsen">–</div>
+        </div>
+        <div class="stat accent">
+          <div class="label">Gesamtkosten</div>
+          <div class="value" id="statGesamt">–</div>
+        </div>
+        <div class="stat">
+          <div class="label">Beleihung (Kredit/Kaufpreis)</div>
+          <div class="value" id="statBeleihung">–</div>
+        </div>
+        <div class="stat accent" id="statSonderkuendigungCard" style="display:none;">
+          <div class="label">Restschuld nach 10&nbsp;Jahren (Sonderkündigung)</div>
+          <div class="value" id="statSonderkuendigung">–</div>
+        </div>
+        <div class="stat accent">
+          <div class="label" id="statRestschuldLabel">Restschuld nach Zinsbindung</div>
+          <div class="value" id="statRestschuld">–</div>
+        </div>
+        <div class="stat" id="splitToggleStatCard">
+          <div class="label">Splitt-Finanzierung</div>
+          <label class="switch-row" for="splitEnableToggle" style="margin-top:6px;">
+            <input type="checkbox" id="splitEnableToggle">
+            <span>anzeigen</span>
+          </label>
+        </div>
+      </div>
+      <div class="link-row toggle-row-wrap" style="margin-bottom:10px;">
+        <button type="button" class="link-toggle" id="btnBeleihungToggle">Beleihung erklärt & Eigenkapital-Rechner ▾</button>
+        <button type="button" class="link-toggle" id="btnSonderkuendigungToggle">Sonderkündigungsrecht erklärt ▾</button>
+        <button type="button" class="link-toggle" id="btnBaunebenkostenToggle">Baunebenkosten-Rechner ▾</button>
+        <button type="button" class="link-toggle" id="btnKaufnebenkostenToggle">Kaufnebenkosten-Rechner ▾</button>
+      </div>
+      <div class="info-box" id="sonderkuendigungInfo" style="display:none; margin-bottom:22px;">
+        Nach <strong>10 Jahren</strong> seit vollständiger Auszahlung des Kredits darfst du gemäß <strong>§ 489 BGB</strong> jederzeit mit einer Frist von 6 Monaten kündigen und umschulden – unabhängig davon, wie lange deine Zinsbindung eigentlich noch läuft. Das gilt für jeden Kredit, egal ob 15, 20 oder 30 Jahre Zinsbindung vereinbart wurden. Vorteil: Läuft dann woanders ein besserer Zins, kannst du wechseln, ohne eine Vorfälligkeitsentschädigung an deine bisherige Bank zahlen zu müssen. Das ist ein <strong>zusätzliches Sicherheitsnetz</strong>, aber kein Grund, grundsätzlich gegen eine längere Zinsbindung zu entscheiden: Eine längere Bindung sichert dir umgekehrt auch länger einen festen Zins – gerade wenn du mit steigenden Zinsen rechnest, kann das sehr viel wert sein. Die Sonderkündigung ist die Option nach oben (bei fallenden Zinsen wechseln), die lange Bindung ist die Absicherung nach unten (bei steigenden Zinsen) – beides schließt sich nicht aus.
+      </div>
+      <div class="info-box" id="baunebenkostenInfo" style="display:none; margin-bottom:22px;">
+        <p style="margin:0 0 14px;">Viele Inserate – vor allem bei Neubau, Ausbauhäusern oder Objekten mit Sanierungsbedarf – nennen einen Kaufpreis, zu dem noch <strong>zusätzliche Kosten</strong> dazukommen: der <strong>Restausbau</strong> (Materialien für den Innenausbau – Böden, Türen, Sanitärbereiche, Malerarbeiten) sowie <strong>Baunebenkosten</strong> (Baustelleneinrichtung, Hausanschlusskosten, Erdarbeiten). Die folgenden Prozentsätze sind grobe Richtwerte auf Basis des Kaufpreises – trag bei Bedarf eigene Werte ein, wenn du genauere Angaben hast.</p>
+        <div class="table-wrap" style="max-height:none;">
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align:left;">Position</th>
+                <th>% vom Kaufpreis</th>
+                <th>Betrag</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="text-align:left;">Restausbau<br><span style="color:var(--fog-dim); font-size:10px;">Böden, Türen, Sanitär, Malerarbeiten</span></td>
+                <td><input type="number" id="restausbauPct" value="15" step="1" min="0" max="60" class="split-zins-input"></td>
+                <td id="restausbauBetrag">–</td>
+              </tr>
+              <tr>
+                <td style="text-align:left;">Baunebenkosten<br><span style="color:var(--fog-dim); font-size:10px;">Baustelleneinrichtung, Hausanschlüsse, Erdarbeiten</span></td>
+                <td><input type="number" id="baunebenkostenPct" value="12" step="1" min="0" max="60" class="split-zins-input"></td>
+                <td id="baunebenkostenBetrag">–</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note" id="baunebenkostenSumme" style="margin-top:10px;"></div>
+        <div class="chip-row" style="margin-top:12px;">
+          <button type="button" class="btn-suggest" id="btnBaunebenkostenUebernehmen">Kosten übernehmen in Kaufpreis</button>
+          <button type="button" class="btn-suggest" id="btnBaunebenkostenZuruecknehmen" disabled>Kosten wieder herausnehmen</button>
+        </div>
+        <div class="note" id="baunebenkostenStatus" style="margin-top:8px;"></div>
+        <div class="note" style="margin-top:6px;">Näherungswerte zur Orientierung – abhängig von Ausbaustufe, Grundstück und Region können die tatsächlichen Kosten deutlich abweichen. „Übernehmen" addiert die Zusatzkosten einmalig auf den Kaufpreis oben; „Herausnehmen" macht das wieder rückgängig.</div>
+      </div>
+      <div class="info-box" id="kaufnebenkostenInfo" style="display:none; margin-bottom:22px;">
+        <p style="margin:0 0 14px;">Beim Immobilienkauf kommen zum Kaufpreis übliche <strong>Kaufnebenkosten</strong> dazu: Grunderwerbsteuer, Notar- &amp; Grundbuchkosten sowie ggf. Maklerprovision. Anders als Baunebenkosten werden diese von der Bank in der Regel <strong>nicht mitfinanziert</strong> – du brauchst dafür zusätzliches Eigenkapital, on top zu dem, was du für den Kaufpreis einsetzt.</p>
+        <div class="table-wrap" style="max-height:none;">
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align:left;">Position</th>
+                <th>% vom Kaufpreis</th>
+                <th>Betrag</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="text-align:left;">Grunderwerbsteuer<br><span style="color:var(--fog-dim); font-size:10px;">je nach Bundesland 3,5–6,5 %</span></td>
+                <td><input type="number" id="grunderwerbsteuerPct" value="5" step="0.5" min="0" max="10" class="split-zins-input"></td>
+                <td id="grunderwerbsteuerBetrag">–</td>
+              </tr>
+              <tr>
+                <td style="text-align:left;">Notar &amp; Grundbuch</td>
+                <td><input type="number" id="notarPct" value="1.5" step="0.1" min="0" max="5" class="split-zins-input"></td>
+                <td id="notarBetrag">–</td>
+              </tr>
+              <tr>
+                <td style="text-align:left;">Makler<br><span style="color:var(--fog-dim); font-size:10px;">je nach Bundesland, oft hälftig geteilt</span></td>
+                <td><input type="number" id="maklerPct" value="3.57" step="0.01" min="0" max="10" class="split-zins-input"></td>
+                <td id="maklerBetrag">–</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note" id="kaufnebenkostenSumme" style="margin-top:10px;"></div>
+        <div class="note" style="margin-top:6px;">Näherungswerte – Grunderwerbsteuer variiert je Bundesland (3,5 % Bayern/Sachsen bis 6,5 % u. a. NRW, Brandenburg, Saarland, Schleswig-Holstein), Maklerprovision je nach Region und Verhandlung. Eigene Werte eintragen, sobald du Genaueres weißt.</div>
+      </div>
+      <div class="beleihung-info" id="beleihungInfo" style="display:none;">
+        <p style="margin:0 0 14px;">Die <strong>Beleihung</strong> (genauer: der Beleihungsauslauf) zeigt, wie viel Prozent des Immobilienwerts über den Kredit finanziert wird. Banken staffeln ihre Konditionen meist in Stufen: unter 60 % gilt als besonders sicher und wird oft mit dem besten Zins belohnt, bis 80 % sind die Konditionen in der Regel noch gut, darüber (80–100 %, und erst recht über 100 % als sogenannter Blanko-Anteil) verlangen viele Banken einen Risikoaufschlag auf den Zins.</p>
+
+        <div class="sub-label">Eigenkapital für Ziel-Beleihung setzen</div>
+        <div class="chip-row">
+          <button type="button" class="chip" data-ziel="60">≤ 60 %</button>
+          <button type="button" class="chip" data-ziel="80">80 %</button>
+          <button type="button" class="chip" data-ziel="90">90 %</button>
+          <button type="button" class="chip" data-ziel="100">100 %</button>
+        </div>
+
+        <div class="sub-label" style="margin-top:18px;">Tranchen deines Kredits nach Beleihungsstufe</div>
+        <div class="table-wrap" style="max-height:none;">
+          <table id="tranchenTable">
+            <thead>
+              <tr>
+                <th style="text-align:left;">Beleihungsstufe</th>
+                <th>Anteil am Kredit</th>
+                <th>Richtwert-Aufschlag</th>
+              </tr>
+            </thead>
+            <tbody id="tranchenBody"></tbody>
+          </table>
+        </div>
+        <div class="note" id="tranchenSumme" style="margin-top:10px;"></div>
+        <div class="note" style="margin-top:6px;">Die Aufschläge sind grobe Orientierungswerte ggü. der Bestkondition (Beleihung bis 60 %) – keine verbindlichen Bankkonditionen. Die tatsächliche Staffelung unterscheidet sich von Bank zu Bank.</div>
+      </div>
+
+      <div class="panel split-panel" id="splitPanel" style="display:none;">
+        <div class="split-panel-header">
+          <h2 style="margin:0;">Splitt-Finanzierung (3 Tranchen)</h2>
+          <label class="switch-row" for="splitChartToggle">
+            <input type="checkbox" id="splitChartToggle">
+            <span>Im Diagramm anzeigen</span>
+          </label>
+        </div>
+        <div class="table-wrap" style="max-height:none;">
+          <table id="splitTable">
+            <thead>
+              <tr>
+                <th style="text-align:left;">Tranche</th>
+                <th>Betrag</th>
+                <th>Zinssatz</th>
+                <th>Tilgung</th>
+                <th>Monatsrate</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr id="splitRow1">
+                <td style="text-align:left;">bis 60 %</td>
+                <td id="splitBetrag1">–</td>
+                <td><input type="number" id="splitZins1" step="0.05" class="split-zins-input"></td>
+                <td><input type="number" id="splitTilgung1" step="0.1" min="0.1" max="10" class="split-zins-input"></td>
+                <td id="splitRate1">–</td>
+              </tr>
+              <tr id="splitRow2">
+                <td style="text-align:left;">61–80 %</td>
+                <td id="splitBetrag2">–</td>
+                <td><input type="number" id="splitZins2" step="0.05" class="split-zins-input"></td>
+                <td><input type="number" id="splitTilgung2" step="0.1" min="0.1" max="10" class="split-zins-input"></td>
+                <td id="splitRate2">–</td>
+              </tr>
+              <tr id="splitRow3">
+                <td style="text-align:left;">Blanko-Anteil (&gt; 80 %)</td>
+                <td id="splitBetrag3">–</td>
+                <td><input type="number" id="splitZins3" step="0.05" class="split-zins-input"></td>
+                <td><input type="number" id="splitTilgung3" step="0.1" min="0.1" max="10" class="split-zins-input"></td>
+                <td id="splitRate3">–</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note" id="splitSumme" style="margin-top:10px;"></div>
+        <div class="note" id="splitZinsHinweis" style="margin-top:8px; display:none;"></div>
+        <div class="link-row" style="margin-top:8px;">
+          <button type="button" class="link-toggle" id="btnSplitReset">Zinssätze & Tilgung zurücksetzen</button>
+          <button type="button" class="link-toggle" id="btnSplitErklaerungToggle">Warum splitten? ▴</button>
+        </div>
+        <div class="info-box" id="splitErklaerung">
+          <p style="margin:0 0 12px;">In der Praxis wird ein Kredit oft nicht zu einem einheitlichen Zins finanziert, sondern in <strong>drei Tranchen</strong> mit steigendem Zinssatz: ein günstiger Anteil bis 60 % Beleihung, ein mittlerer Anteil von 61–80 %, und der Rest darüber als teurerer <strong>Blanko-Anteil</strong>. Tranche 1 ist hier mit der aktuellen Marktbestkondition für deine gewählte Zinsbindung vorbelegt (unabhängig von deinem Zinssatz-Feld oben) – so bleibt der Vergleich fair. Auch die <strong>Tilgung</strong> lässt sich je Tranche unabhängig einstellen (Standard: identisch zu deiner Angabe oben) – relevant, wenn z. B. ein KfW-Förderdarlehen oder ein zweiter Anbieter mit eigener, abweichender Tilgungsstruktur eine der Tranchen stellt.</p>
+          <p style="margin:0;">Warum überhaupt splitten, wenn es in Summe meist teurer ist? Meist geht es nicht um einen niedrigeren Gesamtzins, sondern um <strong>Finanzierbarkeit</strong>: Die Hausbank finanziert oft nur bis 60–80 % Beleihung zu guten Konditionen, für den Blanko-Anteil darüber wird häufig ein <strong>zinsgünstiges KfW-Förderdarlehen</strong> oder ein <strong>zweiter Kreditgeber</strong> dazugenommen – oder die Hausbank verlangt für diesen Teil einen spürbaren Risikoaufschlag, weil ihr Sicherungswert (das Haus) den Kredit dann nicht mehr voll abdeckt. Manche splitten auch bewusst nach Zinsbindung (z. B. ein Teil 10 Jahre fest, ein Teil variabel), um flexibler zu bleiben.</p>
+        </div>
+        <div class="note" style="margin-top:8px;">Reine Zusatzrechnung zum Vergleich – sie verändert nicht deinen Tilgungsplan, deine Restschuld-Kurve oder die Werte oben, außer du blendest sie oben bewusst mit ins Diagramm ein.</div>
+      </div>
+
+      <div class="panel chart-panel">
+        <h2>Restschuld-Verlauf</h2>
+        <svg id="chart" viewBox="0 0 900 300" style="width:100%; height:auto; display:block;"></svg>
+        <div class="caption" id="chartCaption"></div>
+      </div>
+
+      <div class="panel" style="margin-bottom:24px;">
+        <h2>Tilgungsplan (jährlich)</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Jahr</th>
+                <th>Restschuld (Start)</th>
+                <th>Zinsen</th>
+                <th>Tilgung</th>
+                <th>Sondertilgung</th>
+                <th>Restschuld (Ende)</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel" id="notizenPanel">
+        <h2>Notizen</h2>
+        <textarea id="notizenFeld" placeholder="z. B. offene Fragen für die Bank, Eindrücke von der Besichtigung, Vergleichsangebote ..."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <footer>Annuitätendarlehen · konstante Monatsrate über die gesamte Laufzeit · reine Simulation, keine Finanzberatung<br>Gebaut von Michael Holzinger mit Claude (Anthropic)</footer>
+</div>
+
+<script>
+const fmtEUR = n => n.toLocaleString('de-DE', {style:'currency', currency:'EUR', maximumFractionDigits:0});
+const fmtEURprec = n => n.toLocaleString('de-DE', {style:'currency', currency:'EUR', maximumFractionDigits:2});
+
+const ids = ['kaufpreis','eigenkapital','zins','tilgung'];
+const el = id => document.getElementById(id);
+
+function syncPair(numId, rangeId, isPercent, decimals){
+  const num = el(numId), range = el(rangeId);
+  num.addEventListener('input', () => { range.value = num.value; calculate(); });
+  range.addEventListener('input', () => { num.value = range.value; calculate(); });
+}
+
+// Ganzzahlige Eurofelder (Kaufpreis, Eigenkapital) mit Tausenderpunkt formatieren
+function formatTausender(n){
+  return Math.round(n || 0).toLocaleString('de-DE');
+}
+function parseTausender(str){
+  return parseInt(String(str || '').replace(/\./g, '').replace(/[^\d-]/g, ''), 10) || 0;
+}
+function syncFormatiertesFeld(textId, rangeId){
+  const text = el(textId), range = el(rangeId);
+  text.addEventListener('input', () => {
+    const roh = parseTausender(text.value);
+    text.value = roh ? formatTausender(roh) : '';
+    const min = parseFloat(range.min), max = parseFloat(range.max);
+    range.value = Math.min(Math.max(roh, min), max);
+    aktualisiereZinsHinweis();
+    calculate();
+  });
+  range.addEventListener('input', () => {
+    text.value = formatTausender(range.value);
+    aktualisiereZinsHinweis();
+    calculate();
+  });
+}
+
+syncFormatiertesFeld('kaufpreis','kaufpreisRange');
+syncFormatiertesFeld('eigenkapital','eigenkapitalRange');
+syncFormatiertesFeld('sondertilgung','sondertilgungRange');
+syncPair('zins','zinsRange');
+syncPair('tilgung','tilgungRange');
+syncPair('zinsbindung','zinsbindungRange');
+el('auszahlungskurs').addEventListener('input', calculate);
+
+// Tranchen-Rechner: Aufteilung des Kredits nach Beleihungsstufen (Richtwerte)
+const TRANCHEN_BAENDER = [
+  {von: 0,   bis: 60,       aufschlag: 0.00, label: 'bis 60 %'},
+  {von: 60,  bis: 80,       aufschlag: 0.10, label: '60–80 %'},
+  {von: 80,  bis: 90,       aufschlag: 0.30, label: '80–90 %'},
+  {von: 90,  bis: 100,      aufschlag: 0.60, label: '90–100 %'},
+  {von: 100, bis: Infinity, aufschlag: 1.00, label: 'über 100 % (Blanko-Anteil)'}
+];
+function berechneTranchenAufteilung(kaufpreis, kreditbetrag){
+  if (kaufpreis <= 0 || kreditbetrag <= 0) return [];
+  return TRANCHEN_BAENDER.map(b => {
+    const bandStart = kaufpreis * b.von / 100;
+    const bandEnd = b.bis === Infinity ? Infinity : kaufpreis * b.bis / 100;
+    const betrag = Math.max(0, Math.min(kreditbetrag, bandEnd) - bandStart);
+    return {...b, betrag};
+  }).filter(t => t.betrag > 0.5);
+}
+function berechneBeleihungsaufschlag(kaufpreis, kreditbetrag){
+  const tranchen = berechneTranchenAufteilung(kaufpreis, kreditbetrag);
+  if (tranchen.length === 0) return 0;
+  return tranchen.reduce((sum, t) => sum + t.betrag * t.aufschlag, 0) / kreditbetrag;
+}
+function renderTranchen(kaufpreis, kreditbetrag){
+  const body = el('tranchenBody');
+  const summe = el('tranchenSumme');
+  if (kaufpreis <= 0 || kreditbetrag <= 0) {
+    body.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--fog-dim);">–</td></tr>';
+    summe.textContent = '';
+    return;
+  }
+  const tranchen = berechneTranchenAufteilung(kaufpreis, kreditbetrag);
+
+  body.innerHTML = tranchen.map(t => `
+    <tr>
+      <td style="text-align:left;">${t.label}</td>
+      <td>${fmtEUR(t.betrag)}</td>
+      <td>${t.aufschlag === 0 ? 'Bestkondition' : '+' + t.aufschlag.toLocaleString('de-DE',{minimumFractionDigits:2}) + ' pp'}</td>
+    </tr>
+  `).join('');
+
+  const gewichteterAufschlag = berechneBeleihungsaufschlag(kaufpreis, kreditbetrag);
+  const basiszins = parseFloat(el('zins').value) || 0;
+  summe.innerHTML = `Geschätzter Aufschlag ggü. Bestkondition: <strong>+${gewichteterAufschlag.toLocaleString('de-DE',{minimumFractionDigits:2})} Prozentpunkte</strong> · daraus grob geschätzter Zins inkl. Aufschlag: <strong>${(basiszins + gewichteterAufschlag).toLocaleString('de-DE',{minimumFractionDigits:2})} %</strong> (dein eingetragener Zinssatz ist ${basiszins.toLocaleString('de-DE',{minimumFractionDigits:2})} %).`;
+}
+
+// Wiederverwendbare Annuitätendarlehen-Berechnung (für Hauptplan und einzelne Splitt-Tranchen)
+function berechneTilgungsplan(kreditbetrag, zinsPct, tilgungPct, maxJahre, sondertilgung){
+  maxJahre = maxJahre || 60;
+  sondertilgung = sondertilgung || 0;
+  const annuitaet = kreditbetrag * (zinsPct + tilgungPct) / 100;
+  let restschuld = kreditbetrag;
+  const rows = [];
+  let jahr = 0;
+  let gesamtzinsen = 0;
+  while (restschuld > 1 && jahr < maxJahre && annuitaet > 0) {
+    jahr++;
+    const start = restschuld;
+    let zinsen = restschuld * zinsPct / 100;
+    let tilgungBetrag = annuitaet - zinsen;
+    if (tilgungBetrag > restschuld) {
+      tilgungBetrag = restschuld;
+      zinsen = Math.min(zinsen, annuitaet - tilgungBetrag);
+    }
+    restschuld = Math.max(restschuld - tilgungBetrag, 0);
+    let sonderBetrag = 0;
+    if (sondertilgung > 0 && restschuld > 0) {
+      sonderBetrag = Math.min(sondertilgung, restschuld);
+      restschuld = Math.max(restschuld - sonderBetrag, 0);
+    }
+    gesamtzinsen += zinsen;
+    rows.push({jahr, start, zinsen, tilgungBetrag, sonderBetrag, ende: restschuld});
+  }
+  return {rows, gesamtzinsen, annuitaet};
+}
+
+// Splitt-Finanzierung: 3 Tranchen nach Beleihungsstufe (Zusatzrechnung, unabhängig vom Haupt-Tilgungsplan)
+let letzteSplitBasis = {kaufpreis: 0, kreditbetrag: 0, tilgungPct: 0, monatsrateHaupt: 0};
+let letzteSplitSeries = [];
+let letzteHauptRows = [];
+let letzteZinsbindung = 10;
+let letzteSonderkuendigungRelevant = false;
+function splitDefaultsSetzen(){
+  const zinsbindungJahre = Math.max(parseInt(el('zinsbindung').value) || 10, 1);
+  const basis = marktzinsFuer(zinsbindungJahre);
+  el('splitZins1').value = basis.toFixed(2);
+  el('splitZins2').value = (basis + 0.2).toFixed(2);
+  el('splitZins3').value = (basis + 0.8).toFixed(2);
+  const tilgungBasis = parseFloat(el('tilgung').value) || 2;
+  el('splitTilgung1').value = tilgungBasis.toFixed(1);
+  el('splitTilgung2').value = tilgungBasis.toFixed(1);
+  el('splitTilgung3').value = tilgungBasis.toFixed(1);
+}
+function renderSplit(kaufpreis, kreditbetrag, tilgungPct, monatsrateHaupt){
+  letzteSplitBasis = {kaufpreis, kreditbetrag, tilgungPct, monatsrateHaupt};
+  const t1Betrag = Math.max(0, Math.min(kreditbetrag, kaufpreis * 0.6));
+  const t2Betrag = Math.max(0, Math.min(kreditbetrag, kaufpreis * 0.8) - kaufpreis * 0.6);
+  const t3Betrag = Math.max(0, kreditbetrag - kaufpreis * 0.8);
+  const tranchen = [
+    {nr: 1, betrag: t1Betrag},
+    {nr: 2, betrag: t2Betrag},
+    {nr: 3, betrag: t3Betrag}
+  ];
+  let summeRate = 0;
+  let anteilGenutzt = false;
+  const trancheRows = [];
+  tranchen.forEach(t => {
+    const row = el('splitRow' + t.nr);
+    if (kaufpreis <= 0 || t.betrag <= 0.5) { row.style.display = 'none'; return; }
+    row.style.display = '';
+    anteilGenutzt = true;
+    const zinsInput = el('splitZins' + t.nr);
+    const zins = parseFloat(zinsInput.value);
+    const zinsEff = isNaN(zins) ? 0 : zins;
+    const tilgungInput = el('splitTilgung' + t.nr);
+    const tilgungTranche = parseFloat(tilgungInput.value);
+    const tilgungEff = isNaN(tilgungTranche) ? tilgungPct : tilgungTranche;
+    const rate = t.betrag * (zinsEff + tilgungEff) / 100 / 12;
+    el('splitBetrag' + t.nr).textContent = fmtEUR(t.betrag);
+    el('splitRate' + t.nr).textContent = fmtEURprec(rate);
+    summeRate += rate;
+
+    const plan = berechneTilgungsplan(t.betrag, zinsEff, tilgungEff);
+    trancheRows.push(plan.rows);
+  });
+  const summe = el('splitSumme');
+  if (!anteilGenutzt) {
+    summe.textContent = '';
+    letzteSplitSeries = [];
+    el('splitZinsHinweis').style.display = 'none';
+  } else {
+    const diff = summeRate - monatsrateHaupt;
+    const diffText = Math.abs(diff) < 0.5
+      ? 'entspricht in etwa der einheitlichen Monatsrate oben.'
+      : (diff > 0
+          ? `das sind ${fmtEURprec(diff)} mehr pro Monat als bei einem einheitlichen Zinssatz.`
+          : `das sind ${fmtEURprec(Math.abs(diff))} weniger pro Monat als bei einem einheitlichen Zinssatz.`);
+    summe.innerHTML = `Monatsrate in Summe über alle Tranchen: <strong>${fmtEURprec(summeRate)}</strong> – ${diffText}`;
+
+    // Erklärung, wenn die Werte auseinanderlaufen, weil Tranche 1 den Marktzins statt des Sollzinssatzes oben nutzt
+    const hauptZins = parseFloat(el('zins').value);
+    const zins1 = parseFloat(el('splitZins1').value);
+    const hinweisEl = el('splitZinsHinweis');
+    if (Math.abs(diff) >= 0.5 && !isNaN(hauptZins) && !isNaN(zins1) && Math.abs(hauptZins - zins1) > 0.01) {
+      hinweisEl.innerHTML = `Unterschied vor allem, weil Tranche 1 den <strong>Marktzins für deine Zinsbindung</strong> (${zins1.toLocaleString('de-DE',{minimumFractionDigits:2})} %) nutzt, dein Sollzinssatz oben aber ${hauptZins.toLocaleString('de-DE',{minimumFractionDigits:2})} % ist. Klick oben bei „Sollzinssatz" auf „übernehmen", damit beide Werte vergleichbar sind.`;
+      hinweisEl.style.display = 'block';
+    } else {
+      hinweisEl.style.display = 'none';
+    }
+
+    // Kombinierte Restschuld-Serie über alle Tranchen für den Diagramm-Overlay
+    const maxLen = trancheRows.reduce((max, r) => Math.max(max, r.length), 0);
+    const combined = [];
+    for (let i = 0; i < maxLen; i++) {
+      let summeEnde = 0;
+      trancheRows.forEach(r => { summeEnde += (r[i] ? r[i].ende : 0); });
+      combined.push({jahr: i + 1, ende: summeEnde});
+    }
+    letzteSplitSeries = combined;
+  }
+}
+
+// Baunebenkosten-Rechner: Restausbau + Baunebenkosten als Prozentsatz vom Kaufpreis
+let letzteBaunebenkostenSumme = 0;
+let baunebenkostenImKaufpreis = false;
+let baunebenkostenAngewendeterBetrag = 0;
+
+function aktualisiereBaunebenkostenButtons(){
+  const btnUebernehmen = el('btnBaunebenkostenUebernehmen');
+  const btnZuruecknehmen = el('btnBaunebenkostenZuruecknehmen');
+  btnUebernehmen.disabled = baunebenkostenImKaufpreis || letzteBaunebenkostenSumme <= 0;
+  btnZuruecknehmen.disabled = !baunebenkostenImKaufpreis;
+  el('baunebenkostenStatus').innerHTML = baunebenkostenImKaufpreis
+    ? `Bereits im Kaufpreis oben enthalten: <strong>+${fmtEUR(baunebenkostenAngewendeterBetrag)}</strong>.`
+    : '';
+}
+
+function renderBaunebenkosten(kaufpreis){
+  const restausbauPct = parseFloat(el('restausbauPct').value);
+  const baunebenkostenPct = parseFloat(el('baunebenkostenPct').value);
+  const restausbauEff = isNaN(restausbauPct) ? 0 : restausbauPct;
+  const baunebenkostenEff = isNaN(baunebenkostenPct) ? 0 : baunebenkostenPct;
+
+  const restausbauBetrag = kaufpreis * restausbauEff / 100;
+  const baunebenkostenBetrag = kaufpreis * baunebenkostenEff / 100;
+  const summe = restausbauBetrag + baunebenkostenBetrag;
+  letzteBaunebenkostenSumme = summe;
+
+  el('restausbauBetrag').textContent = kaufpreis > 0 ? fmtEUR(restausbauBetrag) : '–';
+  el('baunebenkostenBetrag').textContent = kaufpreis > 0 ? fmtEUR(baunebenkostenBetrag) : '–';
+
+  if (kaufpreis > 0) {
+    el('baunebenkostenSumme').innerHTML = `Zusätzliche Kosten gesamt: <strong>${fmtEUR(summe)}</strong> (${(restausbauEff + baunebenkostenEff).toLocaleString('de-DE')} % vom Kaufpreis) · Gesamtinvestition (Kaufpreis + Zusatzkosten): <strong>${fmtEUR(kaufpreis + summe)}</strong>.`;
+  } else {
+    el('baunebenkostenSumme').textContent = '';
+  }
+  aktualisiereBaunebenkostenButtons();
+}
+
+function renderKaufnebenkosten(kaufpreis){
+  const grunderwerbPct = parseFloat(el('grunderwerbsteuerPct').value);
+  const notarPct = parseFloat(el('notarPct').value);
+  const maklerPct = parseFloat(el('maklerPct').value);
+  const grunderwerbEff = isNaN(grunderwerbPct) ? 0 : grunderwerbPct;
+  const notarEff = isNaN(notarPct) ? 0 : notarPct;
+  const maklerEff = isNaN(maklerPct) ? 0 : maklerPct;
+
+  const grunderwerbBetrag = kaufpreis * grunderwerbEff / 100;
+  const notarBetrag = kaufpreis * notarEff / 100;
+  const maklerBetrag = kaufpreis * maklerEff / 100;
+  const summe = grunderwerbBetrag + notarBetrag + maklerBetrag;
+
+  el('grunderwerbsteuerBetrag').textContent = kaufpreis > 0 ? fmtEUR(grunderwerbBetrag) : '–';
+  el('notarBetrag').textContent = kaufpreis > 0 ? fmtEUR(notarBetrag) : '–';
+  el('maklerBetrag').textContent = kaufpreis > 0 ? fmtEUR(maklerBetrag) : '–';
+
+  if (kaufpreis > 0) {
+    el('kaufnebenkostenSumme').innerHTML = `Kaufnebenkosten gesamt: <strong>${fmtEUR(summe)}</strong> (${(grunderwerbEff + notarEff + maklerEff).toLocaleString('de-DE')} % vom Kaufpreis) · zusätzlich zum Kaufpreis nötig, i. d. R. aus Eigenkapital zu zahlen. Insgesamt einzuplanendes Kapital: <strong>${fmtEUR(kaufpreis + summe)}</strong>.`;
+  } else {
+    el('kaufnebenkostenSumme').textContent = '';
+  }
+}
+
+// Effektivzins-Näherung: löst per Bisektion nach dem Monatszins, der den ausgezahlten Betrag
+// mit dem Barwert der Raten + Restschuld am Ende der Zinsbindung in Einklang bringt.
+function berechneEffektivzins(kreditbetrag, auszahlungskurs, monatsrate, zinsbindungJahre, restschuldBeiBindung){
+  if (kreditbetrag <= 0 || monatsrate <= 0 || zinsbindungJahre <= 0) return null;
+  const ausgezahlt = kreditbetrag * auszahlungskurs / 100;
+  const n = Math.round(zinsbindungJahre * 12);
+
+  function barwert(iMonat){
+    let summe = 0;
+    let diskont = 1;
+    for (let t = 1; t <= n; t++) {
+      diskont *= (1 + iMonat);
+      summe += monatsrate / diskont;
+    }
+    summe += restschuldBeiBindung / diskont;
+    return summe;
+  }
+
+  let lo = -0.01, hi = 0.05;
+  let versuche = 0;
+  while (barwert(hi) > ausgezahlt && versuche < 12) { hi *= 1.5; versuche++; }
+
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (barwert(mid) > ausgezahlt) lo = mid; else hi = mid;
+  }
+  const iMonatlich = (lo + hi) / 2;
+  return (Math.pow(1 + iMonatlich, 12) - 1) * 100;
+}
+
+function calculate(){
+  const kaufpreis = parseTausender(el('kaufpreis').value);
+  const eigenkapital = parseTausender(el('eigenkapital').value);
+  const zinsPct = parseFloat(el('zins').value) || 0;
+  const tilgungPct = parseFloat(el('tilgung').value) || 0;
+  const zinsbindung = Math.max(parseInt(el('zinsbindung').value) || 1, 1);
+  const sondertilgung = parseTausender(el('sondertilgung').value);
+  const auszahlungskurs = Math.min(Math.max(parseFloat(el('auszahlungskurs').value) || 100, 50), 100);
+
+  el('kaufpreisVal').textContent = fmtEUR(kaufpreis);
+  el('eigenkapitalVal').textContent = fmtEUR(eigenkapital);
+  el('zinsVal').textContent = zinsPct.toLocaleString('de-DE', {minimumFractionDigits:2}) + ' %';
+  el('tilgungVal').textContent = tilgungPct.toLocaleString('de-DE', {minimumFractionDigits:2}) + ' %';
+  el('zinsbindungVal').textContent = zinsbindung + ' Jahre';
+  el('sondertilgungVal').textContent = fmtEUR(sondertilgung);
+  el('auszahlungskursVal').textContent = auszahlungskurs.toLocaleString('de-DE', {minimumFractionDigits:1}) + ' %';
+
+  const kreditbetrag = Math.max(kaufpreis - eigenkapital, 0);
+  el('kreditbetrag').textContent = fmtEUR(kreditbetrag);
+
+  // Tilgungsplan berechnen (inkl. jährlicher Sondertilgung, sofern angegeben)
+  const {rows, gesamtzinsen, annuitaet} = berechneTilgungsplan(kreditbetrag, zinsPct, tilgungPct, 60, sondertilgung);
+  const monatsrate = annuitaet / 12;
+  el('monatsrate').textContent = fmtEURprec(monatsrate);
+  el('statMonatsrate').textContent = fmtEURprec(monatsrate);
+
+  if (sondertilgung > 0 && kreditbetrag > 0) {
+    const pctVonKredit = (sondertilgung / kreditbetrag * 100);
+    el('sondertilgungHinweis').textContent = `Entspricht ${pctVonKredit.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})} % deiner Darlehenssumme pro Jahr. Viele Banken erlauben kostenlos bis zu 5–10 % – höhere Beträge können Gebühren auslösen.`;
+  } else {
+    el('sondertilgungHinweis').textContent = 'Viele Banken erlauben kostenlos bis zu 5–10 % der Darlehenssumme pro Jahr – höhere Beträge können Gebühren auslösen.';
+  }
+
+  // Effektivzins (Näherung): berücksichtigt Auszahlungskurs über die Zinsbindung
+  const restschuldBeiBindung = zinsbindung <= rows.length ? rows[zinsbindung-1].ende : 0;
+  const effektivzins = berechneEffektivzins(kreditbetrag, auszahlungskurs, monatsrate, zinsbindung, restschuldBeiBindung);
+  el('effektivzins').textContent = (effektivzins === null ? '–' : effektivzins.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' %');
+
+  el('statBeleihung').textContent = kaufpreis > 0
+    ? Math.round((kreditbetrag/kaufpreis)*100) + ' %'
+    : '–';
+
+  const maxJahre = 60;
+  const jahr = rows.length;
+
+  el('statLaufzeit').textContent = (annuitaet > 0 && jahr < maxJahre) ? jahr + ' Jahre' : '> ' + maxJahre + ' Jahre';
+  el('statZinsen').textContent = fmtEUR(gesamtzinsen);
+  el('statGesamt').textContent = fmtEUR(kreditbetrag + gesamtzinsen);
+
+  // Restschuld zum Ende der Zinsbindung
+  let restschuldNachBindung;
+  if (zinsbindung >= rows.length) {
+    restschuldNachBindung = 0;
+    el('statRestschuldLabel').textContent = 'Restschuld nach Zinsbindung (bereits getilgt)';
+  } else {
+    restschuldNachBindung = rows[zinsbindung - 1].ende;
+    el('statRestschuldLabel').textContent = `Restschuld nach ${zinsbindung} Jahren Zinsbindung`;
+  }
+  el('statRestschuld').textContent = fmtEUR(restschuldNachBindung);
+
+  // Sonderkündigungsrecht nach § 489 BGB: nur relevant, wenn Zinsbindung länger als 10 Jahre läuft
+  const sonderkuendigungRelevant = zinsbindung > 10;
+  el('sonderkuendigungHinweis').style.display = sonderkuendigungRelevant ? 'flex' : 'none';
+  el('statSonderkuendigungCard').style.display = sonderkuendigungRelevant ? '' : 'none';
+  if (sonderkuendigungRelevant) {
+    const restNach10 = rows.length >= 10 ? rows[9].ende : 0;
+    el('statSonderkuendigung').textContent = fmtEUR(restNach10);
+  }
+
+  renderTable(rows, zinsbindung, sonderkuendigungRelevant);
+  renderTranchen(kaufpreis, kreditbetrag);
+  renderBaunebenkosten(kaufpreis);
+  renderKaufnebenkosten(kaufpreis);
+  renderSplit(kaufpreis, kreditbetrag, tilgungPct, monatsrate);
+  letzteHauptRows = rows;
+  letzteZinsbindung = zinsbindung;
+  letzteSonderkuendigungRelevant = sonderkuendigungRelevant;
+  renderChart(rows, kreditbetrag, zinsbindung, sonderkuendigungRelevant, (el('splitEnableToggle').checked && el('splitChartToggle').checked) ? letzteSplitSeries : null);
+}
+
+function renderTable(rows, zinsbindung, sonderkuendigungRelevant){
+  const body = el('tableBody');
+  body.innerHTML = '';
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    const isBindungsende = r.jahr === zinsbindung;
+    const isSonderkuendigung = sonderkuendigungRelevant && r.jahr === 10;
+    if (isBindungsende) {
+      tr.style.background = 'rgba(201,166,107,0.12)';
+      tr.style.borderLeft = '2px solid #c9a66b';
+    } else if (isSonderkuendigung) {
+      tr.style.background = 'rgba(111,184,217,0.10)';
+      tr.style.borderLeft = '2px solid #6fb8d9';
+    }
+    let jahrLabel = r.jahr;
+    if (isBindungsende) jahrLabel += ' <span style="color:#c9a66b;font-size:11px;">← Zinsbindung endet</span>';
+    else if (isSonderkuendigung) jahrLabel += ' <span style="color:#6fb8d9;font-size:11px;">← Sonderkündigung möglich</span>';
+    tr.innerHTML = `
+      <td>${jahrLabel}</td>
+      <td>${fmtEUR(r.start)}</td>
+      <td>${fmtEUR(r.zinsen)}</td>
+      <td>${fmtEUR(r.tilgungBetrag)}</td>
+      <td>${r.sonderBetrag > 0 ? fmtEUR(r.sonderBetrag) : '–'}</td>
+      <td style="${isBindungsende ? 'color:#c9a66b;font-weight:600;' : (isSonderkuendigung ? 'color:#6fb8d9;font-weight:600;' : '')}">${fmtEUR(r.ende)}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function renderChart(rows, kreditbetrag, zinsbindung, sonderkuendigungRelevant, splitSeries){
+  const svg = el('chart');
+  const W = 900, H = 300, padL = 70, padR = 20, padB = 36;
+  const legendH = (splitSeries && splitSeries.length > 0) ? 20 : 0;
+  const padT = 20 + legendH;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  if (rows.length === 0) { svg.innerHTML = ''; return; }
+
+  const maxVal = kreditbetrag || 1;
+  const n = rows.length;
+  const nDomain = Math.max(n, (splitSeries && splitSeries.length) ? splitSeries.length : 0);
+
+  const points = rows.map((r, i) => {
+    const x = padL + (i / nDomain) * plotW;
+    const y = padT + plotH - (r.ende / maxVal) * plotH;
+    return [x, y];
+  });
+  const startPoint = [padL, padT + plotH - (kreditbetrag / maxVal) * plotH];
+  const allPoints = [startPoint, ...points];
+
+  const linePath = allPoints.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+  const areaPath = linePath + ` L${(padL+plotW).toFixed(1)},${(padT+plotH).toFixed(1)} L${padL},${(padT+plotH).toFixed(1)} Z`;
+
+  // Splitt-Finanzierung als Overlay-Linie, falls aktiviert - Legende bekommt eine eigene, feste Zeile ganz oben
+  let splitLinePath = '';
+  let splitLegend = '';
+  if (splitSeries && splitSeries.length > 0) {
+    const splitPoints = splitSeries.map((r, i) => {
+      const x = padL + (i / nDomain) * plotW;
+      const y = padT + plotH - (r.ende / maxVal) * plotH;
+      return [x, y];
+    });
+    const splitAllPoints = [startPoint, ...splitPoints];
+    splitLinePath = splitAllPoints.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+    splitLegend = `
+      <g font-family="IBM Plex Mono, monospace" font-size="10">
+        <line x1="${padL}" y1="12" x2="${(padL+16).toFixed(1)}" y2="12" stroke="#6fb8d9" stroke-width="2.5" />
+        <text x="${(padL+22).toFixed(1)}" y="16" fill="#8b97a6">Einheitlicher Zins</text>
+        <line x1="${(padL+150).toFixed(1)}" y1="12" x2="${(padL+166).toFixed(1)}" y2="12" stroke="#c9a66b" stroke-width="2.5" stroke-dasharray="6,3" />
+        <text x="${(padL+172).toFixed(1)}" y="16" fill="#8b97a6">Splitt-Finanzierung</text>
+      </g>
+    `;
+  }
+
+  // Gridlines + y labels (4 steps)
+  let gridLines = '';
+  let yLabels = '';
+  const steps = 4;
+  for (let s = 0; s <= steps; s++) {
+    const val = maxVal * (1 - s/steps);
+    const y = padT + (s/steps) * plotH;
+    gridLines += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${padL+plotW}" y2="${y.toFixed(1)}" stroke="#2f3b48" stroke-width="1" />`;
+    yLabels += `<text x="${padL-10}" y="${(y+4).toFixed(1)}" text-anchor="end" font-size="11" fill="#5b6472" font-family="IBM Plex Mono, monospace">${fmtEUR(val).replace('€','').trim()}</text>`;
+  }
+
+  // Marker für Ende der Zinsbindung
+  let bindungMarker = '';
+  if (zinsbindung >= 1 && zinsbindung <= n) {
+    const idx = zinsbindung - 1;
+    const mx = points[idx][0];
+    const my = points[idx][1];
+    const restVal = rows[idx].ende;
+    bindungMarker = `
+      <line x1="${mx.toFixed(1)}" y1="${padT}" x2="${mx.toFixed(1)}" y2="${(padT+plotH).toFixed(1)}" stroke="#c9a66b" stroke-width="1.5" stroke-dasharray="4,4" />
+      <circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="4.5" fill="#c9a66b" stroke="#141b24" stroke-width="1.5" />
+      <text x="${mx.toFixed(1)}" y="${padT-6}" text-anchor="${idx > n*0.7 ? 'end' : 'middle'}" font-size="11" fill="#c9a66b" font-family="IBM Plex Mono, monospace" font-weight="600">Zinsbindung endet (Jahr ${zinsbindung})</text>
+    `;
+  } else if (zinsbindung > n) {
+    // Zinsbindung liegt nach vollständiger Tilgung
+  }
+
+  // Marker für Sonderkündigungsrecht nach § 489 BGB (Jahr 10), falls Zinsbindung länger läuft
+  let sonderMarker = '';
+  if (sonderkuendigungRelevant && n >= 10) {
+    const idx = 9;
+    const mx = points[idx][0];
+    const my = points[idx][1];
+    const textY = padT + 10;
+    sonderMarker = `
+      <line x1="${mx.toFixed(1)}" y1="${(textY+6).toFixed(1)}" x2="${mx.toFixed(1)}" y2="${(padT+plotH).toFixed(1)}" stroke="#6fb8d9" stroke-width="1.5" stroke-dasharray="2,3" />
+      <circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="4" fill="#6fb8d9" stroke="#141b24" stroke-width="1.5" />
+      <text x="${mx.toFixed(1)}" y="${textY}" text-anchor="middle" font-size="10" fill="#6fb8d9" font-family="IBM Plex Mono, monospace">Sonderkündigungsrecht</text>
+    `;
+  }
+
+  // x labels: first, middle, last year (gemeinsame Domäne für Haupt- und Splitt-Kurve)
+  let xLabels = '';
+  const labelIdxs = nDomain <= 1 ? [0] : [0, Math.floor(nDomain/2)-1, nDomain-1];
+  labelIdxs.forEach(i => {
+    if (i < 0 || i >= nDomain) return;
+    const x = padL + (i / nDomain) * plotW;
+    xLabels += `<text x="${x.toFixed(1)}" y="${H-10}" text-anchor="middle" font-size="11" fill="#5b6472" font-family="IBM Plex Mono, monospace">Jahr ${i+1}</text>`;
+  });
+
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="fogFill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#6fb8d9" stop-opacity="0.28" />
+        <stop offset="100%" stop-color="#6fb8d9" stop-opacity="0" />
+      </linearGradient>
+    </defs>
+    ${gridLines}
+    <path d="${areaPath}" fill="url(#fogFill)" />
+    <path d="${linePath}" fill="none" stroke="#6fb8d9" stroke-width="2.5" />
+    ${splitLinePath ? `<path d="${splitLinePath}" fill="none" stroke="#c9a66b" stroke-width="2.5" stroke-dasharray="6,3" />` : ''}
+    ${bindungMarker}
+    ${sonderMarker}
+    ${yLabels}
+    ${xLabels}
+    ${splitLegend}
+  `;
+
+  const restBeiBindung = zinsbindung <= n ? rows[zinsbindung-1].ende : 0;
+  let caption = `Kreditbetrag ${fmtEUR(kreditbetrag)} über ${rows.length} Jahre getilgt · nach ${zinsbindung} Jahren Zinsbindung verbleiben ${fmtEUR(restBeiBindung)} Restschuld (Anschlussfinanzierung nötig, falls > 0 €).`;
+  if (sonderkuendigungRelevant && n >= 10) {
+    caption += ` Gestrichelt in Blau: dein gesetzliches Sonderkündigungsrecht bereits nach 10 Jahren (${fmtEUR(rows[9].ende)} Restschuld).`;
+  }
+  if (splitSeries && splitSeries.length > 0) {
+    caption += ` Gestrichelt in Gold: Restschuld-Verlauf bei der Splitt-Finanzierung (${splitSeries.length} Jahre bis vollständig getilgt).`;
+  }
+  el('chartCaption').textContent = caption;
+}
+
+// Marktübliche Topkonditionen nach Zinsbindung (Näherungswerte, Stand: Juli 2026, Quelle u.a. Dr. Klein / Bundesbank MFI-Zinsstatistik)
+const MARKTZINS_STANDARD_STAND = 'Juli 2026';
+const MARKTZINS_STANDARD = [
+  {jahre: 5,  zins: 3.4},
+  {jahre: 10, zins: 3.7},
+  {jahre: 15, zins: 3.9},
+  {jahre: 20, zins: 4.0},
+  {jahre: 30, zins: 4.1}
+];
+const RATE_KEY = 'baufi_marktzins_v1';
+function ladeRatesOverride(){
+  try {
+    const raw = localStorage.getItem(RATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.points) && parsed.points.length === MARKTZINS_STANDARD.length) return parsed;
+    return null;
+  } catch(e){ return null; }
+}
+let ratesOverride = ladeRatesOverride();
+let marktzinsPunkte = ratesOverride ? ratesOverride.points : MARKTZINS_STANDARD.map(p => ({...p}));
+
+function marktzinsFuer(jahre){
+  const pts = marktzinsPunkte;
+  if (jahre <= pts[0].jahre) return pts[0].zins;
+  if (jahre >= pts[pts.length-1].jahre) return pts[pts.length-1].zins;
+  for (let i = 0; i < pts.length-1; i++) {
+    const a = pts[i], b = pts[i+1];
+    if (jahre >= a.jahre && jahre <= b.jahre) {
+      const t = (jahre - a.jahre) / (b.jahre - a.jahre);
+      return a.zins + t * (b.zins - a.zins);
+    }
+  }
+  return pts[0].zins;
+}
+
+splitDefaultsSetzen();
+calculate();
+
+// Bank-Richtwert-Vorschläge
+function aktualisiereStandHinweis(){
+  if (ratesOverride && ratesOverride.savedAt) {
+    const datum = new Date(ratesOverride.savedAt).toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
+    el('zinsStandHinweis').textContent = `Stand der Vorschlagswerte: eigene Angaben vom ${datum}`;
+  } else {
+    el('zinsStandHinweis').textContent = `Stand der Vorschlagswerte: ${MARKTZINS_STANDARD_STAND} (Näherungswerte)`;
+  }
+}
+function aktualisiereZinsHinweis(){
+  const jahre = Math.max(parseInt(el('zinsbindung').value) || 10, 1);
+  const basiszins = marktzinsFuer(jahre);
+  const kaufpreis = parseTausender(el('kaufpreis').value);
+  const eigenkapital = parseTausender(el('eigenkapital').value);
+  const kreditbetrag = Math.max(kaufpreis - eigenkapital, 0);
+  const aufschlag = berechneBeleihungsaufschlag(kaufpreis, kreditbetrag);
+  const vorschlag = Math.round((basiszins + aufschlag) * 20) / 20; // auf 0,05 runden
+  const beleihungPct = kaufpreis > 0 ? Math.round((kreditbetrag/kaufpreis)*100) : 0;
+
+  if (aufschlag > 0.001) {
+    el('zinsHinweisText').textContent = `Marktüblich für ${jahre} Jahre fest bei ${beleihungPct} % Beleihung: ca. ${vorschlag.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})} % (${basiszins.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})} % Basis + ${aufschlag.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})} Punkte Beleihungsaufschlag).`;
+  } else {
+    el('zinsHinweisText').textContent = `Marktüblich für ${jahre} Jahre fest: ca. ${vorschlag.toLocaleString('de-DE',{minimumFractionDigits:1})} %.`;
+  }
+  el('btnZinsVorschlag').dataset.wert = vorschlag;
+  el('btnZinsVorschlag').textContent = `${vorschlag.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})} % übernehmen`;
+
+  document.querySelectorAll('.chip[data-jahre]').forEach(chip => {
+    chip.classList.toggle('active', parseInt(chip.dataset.jahre) === jahre);
+  });
+}
+document.querySelectorAll('.chip[data-jahre]').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const jahre = parseInt(chip.dataset.jahre);
+    el('zinsbindung').value = jahre;
+    el('zinsbindungRange').value = Math.min(jahre, 30);
+    aktualisiereZinsHinweis();
+    splitDefaultsSetzen();
+    calculate();
+  });
+});
+el('zinsbindung').addEventListener('input', () => {
+  aktualisiereZinsHinweis();
+  splitDefaultsSetzen();
+  calculate();
+});
+el('zinsbindungRange').addEventListener('input', () => {
+  aktualisiereZinsHinweis();
+  splitDefaultsSetzen();
+  calculate();
+});
+aktualisiereStandHinweis();
+
+el('btnEkVorschlag').addEventListener('click', () => {
+  const kaufpreis = parseTausender(el('kaufpreis').value);
+  const vorschlag = Math.round(kaufpreis * 0.25 / 1000) * 1000;
+  el('eigenkapital').value = formatTausender(vorschlag);
+  el('eigenkapitalRange').value = vorschlag;
+  aktualisiereZinsHinweis();
+  calculate();
+});
+el('btnZinsVorschlag').addEventListener('click', () => {
+  const wert = parseFloat(el('btnZinsVorschlag').dataset.wert) || 3.7;
+  el('zins').value = wert;
+  el('zinsRange').value = wert;
+  calculate();
+});
+aktualisiereZinsHinweis();
+
+// Richtwerte-Editor
+const RATE_FIELD_IDS = {5:'rate5', 10:'rate10', 15:'rate15', 20:'rate20', 30:'rate30'};
+function fuelleRateEditorFelder(){
+  marktzinsPunkte.forEach(p => {
+    const fieldId = RATE_FIELD_IDS[p.jahre];
+    if (fieldId) el(fieldId).value = p.zins;
+  });
+}
+fuelleRateEditorFelder();
+
+el('btnRateEditorToggle').addEventListener('click', () => {
+  const editor = el('rateEditor');
+  const isHidden = editor.style.display === 'none';
+  editor.style.display = isHidden ? 'block' : 'none';
+  el('rateEditorChevron').textContent = isHidden ? '▴' : '▾';
+  if (isHidden) fuelleRateEditorFelder();
+});
+
+el('btnRatesSave').addEventListener('click', () => {
+  const neue = MARKTZINS_STANDARD.map(p => {
+    const fieldId = RATE_FIELD_IDS[p.jahre];
+    const wert = parseFloat(el(fieldId).value);
+    return {jahre: p.jahre, zins: isNaN(wert) ? p.zins : wert};
+  });
+  marktzinsPunkte = neue;
+  ratesOverride = {points: neue, savedAt: new Date().toISOString()};
+  try { localStorage.setItem(RATE_KEY, JSON.stringify(ratesOverride)); } catch(e){ /* Speicher nicht verfügbar */ }
+  aktualisiereZinsHinweis();
+  aktualisiereStandHinweis();
+});
+
+el('btnRatesReset').addEventListener('click', () => {
+  marktzinsPunkte = MARKTZINS_STANDARD.map(p => ({...p}));
+  ratesOverride = null;
+  try { localStorage.removeItem(RATE_KEY); } catch(e){}
+  fuelleRateEditorFelder();
+  aktualisiereZinsHinweis();
+  aktualisiereStandHinweis();
+});
+
+// Projekte speichern/laden (im Browser dieses Geräts, localStorage)
+const STORAGE_KEY = 'baufi_projekte_v1';
+let storageOk = true;
+try {
+  const t = '__test__'; localStorage.setItem(t,'1'); localStorage.removeItem(t);
+} catch(e){ storageOk = false; }
+
+function ladeProjekte(){
+  if (!storageOk) return {};
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
+  catch(e){ return {}; }
+}
+function speichereProjekte(data){
+  if (!storageOk) return;
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+  catch(e){ /* Speicher voll oder gesperrt - stillschweigend ignorieren */ }
+}
+function aktuelleWerte(){
+  return {
+    kaufpreis: parseTausender(el('kaufpreis').value),
+    eigenkapital: parseTausender(el('eigenkapital').value),
+    zins: el('zins').value,
+    tilgung: el('tilgung').value,
+    zinsbindung: el('zinsbindung').value,
+    sondertilgung: parseTausender(el('sondertilgung').value),
+    auszahlungskurs: el('auszahlungskurs').value,
+    splitZins1: el('splitZins1').value,
+    splitZins2: el('splitZins2').value,
+    splitZins3: el('splitZins3').value,
+    splitTilgung1: el('splitTilgung1').value,
+    splitTilgung2: el('splitTilgung2').value,
+    splitTilgung3: el('splitTilgung3').value,
+    grunderwerbsteuerPct: el('grunderwerbsteuerPct').value,
+    notarPct: el('notarPct').value,
+    maklerPct: el('maklerPct').value,
+    notizen: el('notizenFeld').value,
+    savedAt: new Date().toISOString()
+  };
+}
+function renderProjektListe(){
+  const select = el('projektAuswahl');
+  const bisherigeAuswahl = select.value;
+  const projekte = ladeProjekte();
+  const namen = Object.keys(projekte).sort((a,b) => (projekte[b].savedAt||'').localeCompare(projekte[a].savedAt||''));
+
+  if (!storageOk) {
+    select.innerHTML = '<option value="">Speichern nicht verfügbar (privater Modus?)</option>';
+    select.disabled = true;
+    return;
+  }
+  select.disabled = false;
+  if (namen.length === 0) {
+    select.innerHTML = '<option value="">Noch keine gespeicherten Projekte</option>';
+    return;
+  }
+  select.innerHTML = '<option value="">Projekt auswählen…</option>' + namen.map(name => {
+    const p = projekte[name];
+    const meta = `${fmtEUR(parseFloat(p.kaufpreis)||0).replace('€','').trim()} € · ${p.zins} % · ${p.zinsbindung} J. fest`;
+    return `<option value="${escapeHtml(name)}">${escapeHtml(name)} (${meta})</option>`;
+  }).join('');
+  if (namen.includes(bisherigeAuswahl)) select.value = bisherigeAuswahl;
+}
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function projektLaden(name){
+  const projekte = ladeProjekte();
+  const p = projekte[name];
+  if (!p) return;
+  const kaufpreisRoh = parseTausender(p.kaufpreis);
+  const eigenkapitalRoh = parseTausender(p.eigenkapital);
+  el('kaufpreis').value = formatTausender(kaufpreisRoh); el('kaufpreisRange').value = kaufpreisRoh;
+  el('eigenkapital').value = formatTausender(eigenkapitalRoh); el('eigenkapitalRange').value = eigenkapitalRoh;
+  el('zins').value = p.zins; el('zinsRange').value = p.zins;
+  el('tilgung').value = p.tilgung; el('tilgungRange').value = p.tilgung;
+  el('zinsbindung').value = p.zinsbindung; el('zinsbindungRange').value = p.zinsbindung;
+  const sondertilgungRoh = parseTausender(p.sondertilgung);
+  el('sondertilgung').value = formatTausender(sondertilgungRoh); el('sondertilgungRange').value = sondertilgungRoh;
+  el('auszahlungskurs').value = p.auszahlungskurs !== undefined ? p.auszahlungskurs : 100;
+  el('grunderwerbsteuerPct').value = p.grunderwerbsteuerPct !== undefined ? p.grunderwerbsteuerPct : 5;
+  el('notarPct').value = p.notarPct !== undefined ? p.notarPct : 1.5;
+  el('maklerPct').value = p.maklerPct !== undefined ? p.maklerPct : 3.57;
+  el('projektName').value = name;
+  aktualisiereZinsHinweis();
+  // Split-Zinssätze übernehmen, falls im Projekt gespeichert (ältere Projekte: automatisch neu schätzen)
+  if (p.splitZins1 !== undefined && p.splitZins2 !== undefined && p.splitZins3 !== undefined) {
+    el('splitZins1').value = p.splitZins1;
+    el('splitZins2').value = p.splitZins2;
+    el('splitZins3').value = p.splitZins3;
+  } else {
+    splitDefaultsSetzen();
+  }
+  // Split-Tilgung je Tranche übernehmen, falls vorhanden (ältere Projekte: einheitliche Tilgung als Fallback)
+  if (p.splitTilgung1 !== undefined && p.splitTilgung2 !== undefined && p.splitTilgung3 !== undefined) {
+    el('splitTilgung1').value = p.splitTilgung1;
+    el('splitTilgung2').value = p.splitTilgung2;
+    el('splitTilgung3').value = p.splitTilgung3;
+  } else {
+    const tilgungBasis = parseFloat(p.tilgung) || 2;
+    el('splitTilgung1').value = tilgungBasis.toFixed(1);
+    el('splitTilgung2').value = tilgungBasis.toFixed(1);
+    el('splitTilgung3').value = tilgungBasis.toFixed(1);
+  }
+  el('notizenFeld').value = p.notizen || '';
+  calculate();
+}
+
+el('btnProjektLaden').addEventListener('click', () => {
+  const name = el('projektAuswahl').value;
+  if (!name) return;
+  projektLaden(name);
+});
+el('projektAuswahl').addEventListener('change', () => {
+  const name = el('projektAuswahl').value;
+  if (name) projektLaden(name);
+});
+el('btnProjektLoeschen').addEventListener('click', () => {
+  const name = el('projektAuswahl').value;
+  if (!name) return;
+  const projekte = ladeProjekte();
+  delete projekte[name];
+  speichereProjekte(projekte);
+  renderProjektListe();
+});
+
+// Laufende ID-Nummer für PDF-Exporte: IDYYYYMMDD-NN, Zähler beginnt jeden Tag neu bei 01
+const PDF_COUNTER_KEY = 'baufi_pdf_counter_v2';
+function naechstePdfId(){
+  const heute = new Date();
+  const datumStr = heute.getFullYear().toString()
+    + String(heute.getMonth() + 1).padStart(2, '0')
+    + String(heute.getDate()).padStart(2, '0');
+  let stand = {datum: '', zaehler: 0};
+  try {
+    const gespeichert = JSON.parse(localStorage.getItem(PDF_COUNTER_KEY) || 'null');
+    if (gespeichert && gespeichert.datum) stand = gespeichert;
+  } catch(e){}
+  const zaehler = (stand.datum === datumStr) ? stand.zaehler + 1 : 1;
+  try { localStorage.setItem(PDF_COUNTER_KEY, JSON.stringify({datum: datumStr, zaehler})); } catch(e){}
+  return `ID${datumStr}-${String(zaehler).padStart(2, '0')}`;
+}
+
+el('btnPdfExport').addEventListener('click', () => {
+  const name = el('projektName').value.trim();
+  if (!name) {
+    el('projektName').classList.add('input-error');
+    el('projektNameError').style.display = 'block';
+    el('projektName').focus();
+    return;
+  }
+  el('projektName').classList.remove('input-error');
+  el('projektNameError').style.display = 'none';
+
+  const idText = naechstePdfId();
+  const heute = new Date().toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
+  el('pdfProjektTitel').innerHTML = `Projekt: <strong>${name}</strong> &nbsp;·&nbsp; Nr. ${idText} &nbsp;·&nbsp; erstellt am ${heute}`;
+
+  // Notizen fürs PDF vorbereiten: bei leerem Feld ausblenden, sonst volle Höhe zeigen (kein Abschneiden)
+  const notizenText = el('notizenFeld').value.trim();
+  el('notizenPanel').style.display = notizenText ? '' : 'none';
+  if (notizenText) {
+    el('notizenFeld').style.height = 'auto';
+    el('notizenFeld').style.height = el('notizenFeld').scrollHeight + 'px';
+  }
+
+  // Dokumenttitel setzen, damit der Druckdialog diesen Namen als Dateinamen vorschlägt
+  const urspruenglicherTitel = document.title;
+  document.title = `${name} - Simulation Immo-Finanzierung - ${idText}`;
+  window.print();
+  document.title = urspruenglicherTitel;
+  el('notizenPanel').style.display = '';
+  el('notizenFeld').style.height = '';
+});
+
+// Fehleranzeige beim Tippen wieder ausblenden
+el('projektName').addEventListener('input', () => {
+  el('projektName').classList.remove('input-error');
+  el('projektNameError').style.display = 'none';
+});
+
+el('btnProjektSpeichern').addEventListener('click', () => {
+  const name = el('projektName').value.trim();
+  if (!name) { el('projektName').focus(); return; }
+  const projekte = ladeProjekte();
+  if (projekte[name]) {
+    const ok = confirm(`Ein Projekt namens „${name}" existiert bereits. Überschreiben?`);
+    if (!ok) return;
+  }
+  projekte[name] = aktuelleWerte();
+  speichereProjekte(projekte);
+  renderProjektListe();
+  el('projektAuswahl').value = name;
+});
+
+// Projekt als Datei exportieren, um sie z. B. per Mail oder AirDrop zu teilen
+function sanitizeDateiname(name){
+  return name.replace(/[\\/:*?"<>|]+/g, '').trim().replace(/\s+/g, '-') || 'Finanzierung';
+}
+el('btnProjektExport').addEventListener('click', () => {
+  const name = el('projektName').value.trim() || 'Finanzierung';
+  const daten = aktuelleWerte();
+  daten.name = name;
+  daten.exportFormat = 'immobilien-finanzierungssimulator-projekt';
+  daten.exportVersion = 1;
+  const blob = new Blob([JSON.stringify(daten, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = sanitizeDateiname(name) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+// Projekt aus zuvor exportierter Datei importieren
+el('btnProjektImport').addEventListener('click', () => {
+  el('projektImportInput').click();
+});
+el('projektImportInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let daten;
+    try {
+      daten = JSON.parse(reader.result);
+    } catch(err) {
+      alert('Diese Datei ist kein gültiges Projekt für den Immobilien-Finanzierungssimulator.');
+      return;
+    }
+    if (daten.kaufpreis === undefined || daten.eigenkapital === undefined) {
+      alert('Diese Datei enthält keine gültigen Projektdaten.');
+      return;
+    }
+    const name = (daten.name || file.name.replace(/\.json$/i, '')).trim() || 'Importiertes Projekt';
+    const projekte = ladeProjekte();
+    projekte[name] = {
+      kaufpreis: daten.kaufpreis,
+      eigenkapital: daten.eigenkapital,
+      zins: daten.zins,
+      tilgung: daten.tilgung,
+      zinsbindung: daten.zinsbindung,
+      sondertilgung: daten.sondertilgung,
+      auszahlungskurs: daten.auszahlungskurs,
+      splitZins1: daten.splitZins1,
+      splitZins2: daten.splitZins2,
+      splitZins3: daten.splitZins3,
+      splitTilgung1: daten.splitTilgung1,
+      splitTilgung2: daten.splitTilgung2,
+      splitTilgung3: daten.splitTilgung3,
+      grunderwerbsteuerPct: daten.grunderwerbsteuerPct,
+      notarPct: daten.notarPct,
+      maklerPct: daten.maklerPct,
+      notizen: daten.notizen,
+      savedAt: new Date().toISOString()
+    };
+    speichereProjekte(projekte);
+    renderProjektListe();
+    el('projektAuswahl').value = name;
+    projektLaden(name);
+  };
+  reader.onerror = () => {
+    alert('Die Datei konnte nicht gelesen werden.');
+  };
+  reader.readAsText(file);
+});
+
+renderProjektListe();
+
+// Ein-/ausklappbare Erklärungen
+function toggleBox(btnId, boxId, textOffen, textZu){
+  const btn = el(btnId), box = el(boxId);
+  btn.addEventListener('click', () => {
+    const isHidden = box.style.display === 'none';
+    box.style.display = isHidden ? 'block' : 'none';
+    btn.textContent = isHidden ? textZu : textOffen;
+  });
+}
+toggleBox('btnTilgungInfoToggle', 'tilgungInfo', 'Was bedeutet das? ▾', 'Was bedeutet das? ▴');
+toggleBox('btnBeleihungToggle', 'beleihungInfo', 'Beleihung erklärt & Eigenkapital-Rechner ▾', 'Beleihung erklärt & Eigenkapital-Rechner ▴');
+toggleBox('btnAufschlagErklaerungToggle', 'aufschlagErklaerung', 'Wie kommt dieser Wert zustande? ▾', 'Wie kommt dieser Wert zustande? ▴');
+toggleBox('btnSonderkuendigungToggle', 'sonderkuendigungInfo', 'Sonderkündigungsrecht erklärt ▾', 'Sonderkündigungsrecht erklärt ▴');
+toggleBox('btnBaunebenkostenToggle', 'baunebenkostenInfo', 'Baunebenkosten-Rechner ▾', 'Baunebenkosten-Rechner ▴');
+toggleBox('btnKaufnebenkostenToggle', 'kaufnebenkostenInfo', 'Kaufnebenkosten-Rechner ▾', 'Kaufnebenkosten-Rechner ▴');
+toggleBox('btnEffektivzinsErklaerungToggle', 'effektivzinsErklaerung', 'Unterschied zu Sollzins? ▾', 'Unterschied zu Sollzins? ▴');
+toggleBox('btnSplitErklaerungToggle', 'splitErklaerung', 'Warum splitten? ▾', 'Warum splitten? ▴');
+
+el('splitChartToggle').addEventListener('change', calculate);
+
+el('splitEnableToggle').addEventListener('change', () => {
+  el('splitPanel').style.display = el('splitEnableToggle').checked ? '' : 'none';
+  if (!el('splitEnableToggle').checked) el('splitChartToggle').checked = false;
+  calculate();
+});
+
+// Splitt-Finanzierung: Zinssatz-Änderungen sofort neu berechnen, ohne die Hauptberechnung anzufassen
+function aktualisiereSplitUndDiagramm(){
+  renderSplit(letzteSplitBasis.kaufpreis, letzteSplitBasis.kreditbetrag, letzteSplitBasis.tilgungPct, letzteSplitBasis.monatsrateHaupt);
+  if (el('splitEnableToggle').checked && el('splitChartToggle').checked) {
+    renderChart(letzteHauptRows, letzteSplitBasis.kreditbetrag, letzteZinsbindung, letzteSonderkuendigungRelevant, letzteSplitSeries);
+  }
+}
+['splitZins1','splitZins2','splitZins3','splitTilgung1','splitTilgung2','splitTilgung3'].forEach(id => {
+  el(id).addEventListener('input', aktualisiereSplitUndDiagramm);
+});
+el('btnSplitReset').addEventListener('click', () => {
+  splitDefaultsSetzen();
+  aktualisiereSplitUndDiagramm();
+});
+['restausbauPct','baunebenkostenPct'].forEach(id => {
+  el(id).addEventListener('input', () => {
+    renderBaunebenkosten(parseTausender(el('kaufpreis').value));
+  });
+});
+['grunderwerbsteuerPct','notarPct','maklerPct'].forEach(id => {
+  el(id).addEventListener('input', () => {
+    renderKaufnebenkosten(parseTausender(el('kaufpreis').value));
+  });
+});
+
+el('btnBaunebenkostenUebernehmen').addEventListener('click', () => {
+  if (baunebenkostenImKaufpreis) return;
+  const betrag = Math.round(letzteBaunebenkostenSumme);
+  if (betrag <= 0) return;
+  const kaufpreisNeu = parseTausender(el('kaufpreis').value) + betrag;
+  el('kaufpreis').value = formatTausender(kaufpreisNeu);
+  el('kaufpreisRange').value = Math.min(kaufpreisNeu, parseFloat(el('kaufpreisRange').max));
+  baunebenkostenImKaufpreis = true;
+  baunebenkostenAngewendeterBetrag = betrag;
+  aktualisiereZinsHinweis();
+  calculate();
+  aktualisiereBaunebenkostenButtons();
+});
+el('btnBaunebenkostenZuruecknehmen').addEventListener('click', () => {
+  if (!baunebenkostenImKaufpreis) return;
+  const kaufpreisNeu = Math.max(parseTausender(el('kaufpreis').value) - baunebenkostenAngewendeterBetrag, 0);
+  el('kaufpreis').value = formatTausender(kaufpreisNeu);
+  el('kaufpreisRange').value = kaufpreisNeu;
+  baunebenkostenImKaufpreis = false;
+  baunebenkostenAngewendeterBetrag = 0;
+  aktualisiereZinsHinweis();
+  calculate();
+  aktualisiereBaunebenkostenButtons();
+});
+// Manuelle Kaufpreis-Änderung durch den Nutzer setzt den "übernommen"-Status zurück
+el('kaufpreis').addEventListener('input', () => {
+  if (baunebenkostenImKaufpreis) {
+    baunebenkostenImKaufpreis = false;
+    baunebenkostenAngewendeterBetrag = 0;
+    aktualisiereBaunebenkostenButtons();
+  }
+});
+
+// Eigenkapital anhand einer Ziel-Beleihung setzen
+document.querySelectorAll('.chip[data-ziel]').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const ziel = parseFloat(chip.dataset.ziel);
+    const kaufpreis = parseTausender(el('kaufpreis').value);
+    const eigenkapital = Math.max(Math.round(kaufpreis * (1 - ziel/100) / 1000) * 1000, 0);
+    el('eigenkapital').value = formatTausender(eigenkapital);
+    el('eigenkapitalRange').value = eigenkapital;
+    aktualisiereZinsHinweis();
+    calculate();
+  });
+});
+
+// Kurzanleitung: ein-/ausklappbar, merkt sich den Zustand
+const KURZANLEITUNG_KEY = 'baufi_kurzanleitung_ausgeblendet_v1';
+function kurzanleitungAnwenden(ausgeblendet){
+  el('kurzanleitungInhalt').style.display = ausgeblendet ? 'none' : 'block';
+  el('btnKurzanleitungToggle').textContent = ausgeblendet ? 'einblenden ▾' : 'ausblenden ▴';
+}
+let kurzanleitungAusgeblendet = false;
+try { kurzanleitungAusgeblendet = localStorage.getItem(KURZANLEITUNG_KEY) === '1'; } catch(e){}
+kurzanleitungAnwenden(kurzanleitungAusgeblendet);
+el('btnKurzanleitungToggle').addEventListener('click', () => {
+  kurzanleitungAusgeblendet = !kurzanleitungAusgeblendet;
+  kurzanleitungAnwenden(kurzanleitungAusgeblendet);
+  try { localStorage.setItem(KURZANLEITUNG_KEY, kurzanleitungAusgeblendet ? '1' : '0'); } catch(e){}
+});
+
+// Interaktiver Guide: Spotlight-Tour durch die wichtigsten Bereiche
+const TOUR_STEPS = [
+  { selector: '#angabenPanel', titel: 'Angaben', text: 'Hier trägst du die Eckdaten deiner Finanzierung ein: Kaufpreis, Eigenkapital, Zinssatz, Tilgung und Zinsbindung.' },
+  { selector: '.zins-suggestion', titel: 'Zinssatz-Vorschlag', text: 'Der Simulator schlägt automatisch einen marktüblichen Zins vor – inklusive Aufschlag für deine Beleihung. Mit „übernehmen" landet er direkt oben im Feld.' },
+  { selector: '#zinsbindungChipRow', titel: 'Zinsbindung', text: 'Wähle deine Zinsbindung per Klick – 5, 10, 15 oder 20 Jahre. Der Zinssatz-Vorschlag passt sich automatisch an.' },
+  { selector: '.summary-grid', titel: 'Kennzahlen', text: 'Die wichtigsten Ergebnisse auf einen Blick: Monatliche Rate, Laufzeit, Zinskosten, Beleihung und Restschuld zu verschiedenen Zeitpunkten.' },
+  { selector: '.chart-panel', titel: 'Restschuld-Verlauf', text: 'So baut sich dein Kredit über die Jahre ab – inklusive Markierungen für Zinsbindungsende und Sonderkündigungsrecht.' },
+  { selector: '.toggle-row-wrap', titel: 'Vertiefende Rechner', text: 'Erklärungen und Zusatzrechner: was die Beleihung bedeutet, dein Sonderkündigungsrecht, und eine Schätzung für Baunebenkosten (Restausbau, Erdarbeiten, Hausanschlüsse).' },
+  { selector: '#splitToggleStatCard', titel: 'Splitt-Finanzierung', text: 'Für Fortgeschrittene: Teile deinen Kredit in bis zu drei Tranchen mit unterschiedlichem Zins und unterschiedlicher Tilgung auf – z. B. für ein KfW-Darlehen.' },
+  { selector: '#notizenPanel', titel: 'Notizen', text: 'Platz für eigene Notizen – offene Fragen, Bankangebote oder Eindrücke von der Besichtigung.' },
+  { selector: '#projektePanel', titel: 'Projekte', text: 'Speichere deine Simulation, lade sie später erneut oder exportiere sie als Datei, um sie mit anderen zu teilen.' },
+  { selector: '#btnPdfExport', titel: 'PDF-Export', text: 'Und zum Schluss: alles als übersichtliches PDF sichern oder ausdrucken.' }
+];
+let tourIndex = -1;
+let tourAktivesElement = null;
+let tourAlteStyles = null;
+
+function tourAufraeumen(){
+  if (tourAktivesElement && tourAlteStyles){
+    tourAktivesElement.style.boxShadow = tourAlteStyles.boxShadow;
+    tourAktivesElement.style.position = tourAlteStyles.position;
+    tourAktivesElement.style.zIndex = tourAlteStyles.zIndex;
+    tourAktivesElement.style.borderRadius = tourAlteStyles.borderRadius;
+  }
+  tourAktivesElement = null;
+  tourAlteStyles = null;
+  const tooltip = document.getElementById('tourTooltip');
+  if (tooltip) tooltip.remove();
+}
+function guideHinweisAusblenden(){
+  el('btnGuideStart').classList.remove('guide-btn-pulse');
+  const pfeil = el('guideArrow');
+  if (pfeil) pfeil.style.display = 'none';
+}
+function tourBeenden(){
+  tourAufraeumen();
+  try { localStorage.setItem('baufi_tour_gesehen_v1', '1'); } catch(e){}
+  guideHinweisAusblenden();
+}
+function tourNaechsterGueltigerIndex(start, richtung){
+  let i = start;
+  while (i >= 0 && i < TOUR_STEPS.length) {
+    if (document.querySelector(TOUR_STEPS[i].selector)) return i;
+    i += richtung;
+  }
+  return -1;
+}
+function tourZeigeSchritt(index){
+  tourAufraeumen();
+  const richtung = index >= tourIndex ? 1 : -1;
+  const gueltigerIndex = tourNaechsterGueltigerIndex(index, richtung);
+  if (gueltigerIndex === -1) { tourBeenden(); return; }
+  tourIndex = gueltigerIndex;
+  const schritt = TOUR_STEPS[tourIndex];
+  const ziel = document.querySelector(schritt.selector);
+  if (!ziel) { tourBeenden(); return; }
+
+  const zielIstGross = ziel.getBoundingClientRect().height > window.innerHeight - 40;
+  ziel.scrollIntoView({behavior:'smooth', block: zielIstGross ? 'start' : 'center'});
+
+  setTimeout(() => {
+    const cs = window.getComputedStyle(ziel);
+    tourAlteStyles = { boxShadow: ziel.style.boxShadow, position: ziel.style.position, zIndex: ziel.style.zIndex, borderRadius: ziel.style.borderRadius };
+    if (cs.position === 'static') ziel.style.position = 'relative';
+    ziel.style.zIndex = '9999';
+    ziel.style.boxShadow = '0 0 0 4px #6fb8d9, 0 0 0 9999px rgba(10,14,20,0.72)';
+    if (!parseFloat(cs.borderRadius)) ziel.style.borderRadius = '8px';
+    tourAktivesElement = ziel;
+
+    const rect = ziel.getBoundingClientRect();
+    const tooltip = document.createElement('div');
+    tooltip.id = 'tourTooltip';
+    tooltip.className = 'tour-tooltip';
+    tooltip.innerHTML = `
+      <div class="tour-tooltip-step">Schritt ${tourIndex + 1} / ${TOUR_STEPS.length}</div>
+      <div class="tour-tooltip-title">${schritt.titel}</div>
+      <div class="tour-tooltip-text">${schritt.text}</div>
+      <div class="tour-tooltip-actions">
+        <button type="button" id="tourUeberspringen" class="link-toggle">Beenden</button>
+        <div style="display:flex; gap:8px;">
+          <button type="button" id="tourZurueck" class="btn-suggest" ${tourIndex === 0 ? 'disabled' : ''}>Zurück</button>
+          <button type="button" id="tourWeiter" class="btn-primary" style="width:auto; margin-top:0; padding:8px 14px;">${tourIndex === TOUR_STEPS.length - 1 ? 'Fertig' : 'Weiter'}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(tooltip);
+
+    const tRect = tooltip.getBoundingClientRect();
+    // Wenn das Ziel größer als der sichtbare Bereich ist (z. B. ein ganzes Panel), an fester Position im Viewport ausrichten
+    const zielGroesserAlsViewport = rect.height > window.innerHeight - 40;
+    let top = zielGroesserAlsViewport ? (window.innerHeight - tRect.height) / 2 : rect.bottom + 14;
+    if (!zielGroesserAlsViewport && top + tRect.height > window.innerHeight - 10) top = rect.top - tRect.height - 14;
+    top = Math.max(10, Math.min(top, window.innerHeight - tRect.height - 10));
+    let left = zielGroesserAlsViewport
+      ? (window.innerWidth - tRect.width) / 2
+      : rect.left + rect.width / 2 - tRect.width / 2;
+    left = Math.max(10, Math.min(left, window.innerWidth - tRect.width - 10));
+    tooltip.style.top = top + 'px';
+    tooltip.style.left = left + 'px';
+
+    el('tourWeiter').addEventListener('click', () => {
+      if (tourIndex === TOUR_STEPS.length - 1) tourBeenden();
+      else tourZeigeSchritt(tourIndex + 1);
+    });
+    el('tourZurueck').addEventListener('click', () => {
+      if (tourIndex > 0) tourZeigeSchritt(tourIndex - 1);
+    });
+    el('tourUeberspringen').addEventListener('click', tourBeenden);
+  }, 350);
+}
+function tourStarten(){
+  tourIndex = -1;
+  guideHinweisAusblenden();
+  tourZeigeSchritt(0);
+}
+el('btnGuideStart').addEventListener('click', tourStarten);
+
+// Puls und Pfeil nur zeigen, solange die Tour noch nicht gesehen wurde
+try {
+  if (localStorage.getItem('baufi_tour_gesehen_v1') === '1') {
+    guideHinweisAusblenden();
+  }
+} catch(e){}
+</script>
+</body>
+</html>
