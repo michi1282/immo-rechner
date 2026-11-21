@@ -922,9 +922,14 @@
         <input type="text" inputmode="numeric" id="eigenkapital" value="90.000">
         <input type="range" id="eigenkapitalRange" min="0" max="1000000" step="5000" value="90000">
         <div class="hint">
-          <span>Banken sehen 20–30 % vom Kaufpreis gern, das gibt oft bessere Konditionen.</span>
+          <span>Banken sehen 20–30 % vom Kaufpreis gern, plus die Kaufnebenkosten obendrauf.</span>
           <button type="button" class="btn-suggest" id="btnEkVorschlag">25 % vorschlagen</button>
         </div>
+        <label class="switch-row" for="knkEinrechnen" style="margin-top:8px;">
+          <input type="checkbox" id="knkEinrechnen" checked>
+          <span>Kaufnebenkosten zuerst aus dem Eigenkapital bezahlen (<span id="knkKurz">–</span>)</span>
+        </label>
+        <div class="note" id="notarterminHinweis" style="margin-top:6px;"></div>
       </div>
 
       <div class="field">
@@ -936,14 +941,14 @@
           <a href="https://www.drklein.de/aktuelle-bauzinsen.html" target="_blank" rel="noopener" class="link-toggle">Aktuelle Zinsen prüfen ↗</a>
         </div>
         <div class="zins-suggestion">
-          <p class="zins-suggestion-text" id="zinsHinweisText">Marktüblich für 10 Jahre fest: ca. 3,7 %.</p>
+          <p class="zins-suggestion-text" id="zinsHinweisText">Marktüblich für 10 Jahre fest: ca. 4,0 %.</p>
           <div class="zins-suggestion-footer">
             <button type="button" class="btn-suggest" id="btnZinsVorschlag">übernehmen</button>
             <button type="button" class="link-toggle" id="btnAufschlagErklaerungToggle">Wie kommt das zustande? ▾</button>
           </div>
         </div>
         <div class="info-box" id="aufschlagErklaerung" style="display:none;">
-          Der Vorschlag setzt sich aus zwei Teilen zusammen: dem <strong>Marktzins</strong> für deine gewählte Zinsbindung (aus den Richtwerten unten) plus einem <strong>Beleihungsaufschlag</strong>. Der Aufschlag wird genauso berechnet wie im Tranchen-Rechner bei „Beleihung erklärt": dein Kredit wird gedanklich in Bänder zerlegt (bis 60 % Beleihung: kein Aufschlag, 60–80 %: +0,10 Punkte, 80–90 %: +0,30 Punkte, 90–100 %: +0,60 Punkte, über 100 % Blanko-Anteil: +1,00 Punkte). Je nachdem, wie viel deines Kredits in welchem Band liegt, ergibt sich ein gewichteter Mittelwert – das ist die Zahl, die hier als Aufschlag angezeigt wird. Auch das sind Näherungswerte zur Orientierung, keine echten Bankkonditionen.
+          Der Vorschlag setzt sich aus zwei Teilen zusammen: dem <strong>Marktzins</strong> für deine gewählte Zinsbindung (aus den Richtwerten unten) plus einem <strong>Beleihungsaufschlag</strong>. Banken setzen den Zins für den <strong>ganzen Kredit</strong> nach der Beleihungsstufe fest, in die er insgesamt fällt: bis 60 % Beleihung kein Aufschlag, bis 80 %: +0,15 Punkte, bis 90 %: +0,40 Punkte, bis 100 %: +0,70 Punkte, über 100 %: +1,10 Punkte. (Zwischen 60 % und 90 % liegen damit rund 0,4 Punkte, wie Banken es derzeit nennen.) Auch das sind Näherungswerte zur Orientierung, keine echten Bankkonditionen.
         </div>
 
         <div class="secondary-links">
@@ -962,7 +967,7 @@
             <button type="button" class="btn-suggest" id="btnRatesReset">Zurücksetzen</button>
           </div>
           <div class="note" id="rateEditorNote">Eigene Werte von der Vergleichsseite eintragen und speichern – wird ab sofort für alle Vorschläge verwendet, bis du zurücksetzt.</div>
-          <div class="note" id="zinsStandHinweis" style="margin-top:8px;">Stand der Vorschlagswerte: Juli 2026</div>
+          <div class="note" id="zinsStandHinweis" style="margin-top:8px;">Stand der Vorschlagswerte: November 2026</div>
         </div>
       </div>
 
@@ -1006,6 +1011,10 @@
         <div class="note" style="margin-top:6px;">Bei 100 % wird die volle Darlehenssumme ausgezahlt. Manche Banken zahlen weniger aus (Disagio) – das erhöht den Effektivzins gegenüber dem Sollzins.</div>
       </div>
 
+      <div class="credit-line">
+        <span>Gesamtkosten Kauf (inkl. Nebenkosten)</span>
+        <strong id="gesamtkostenKauf">–</strong>
+      </div>
       <div class="credit-line">
         <span>Darlehenssumme</span>
         <strong id="kreditbetrag">360.000 €</strong>
@@ -1102,6 +1111,30 @@
         <button type="button" class="link-toggle" id="btnSonderkuendigungToggle">Sonderkündigungsrecht erklärt ▾</button>
         <button type="button" class="link-toggle" id="btnBaunebenkostenToggle">Baunebenkosten-Rechner ▾</button>
         <button type="button" class="link-toggle" id="btnKaufnebenkostenToggle">Kaufnebenkosten-Rechner ▾</button>
+        <button type="button" class="link-toggle" id="btnLeistbarkeitToggle">Leistbarkeit &amp; laufende Kosten ▾</button>
+      </div>
+      <div class="info-box" id="leistbarkeitInfo" style="display:none; margin-bottom:22px;">
+        <p style="margin:0 0 14px;">Faustregel der Banken: Die <strong>Rate</strong> sollte höchstens etwa <strong>35 % des Haushaltsnettos</strong> ausmachen (manche gehen bis 40 %). Dazu kommen <strong>laufende Hauskosten</strong> (Grundsteuer, Versicherung, Müll, Wasser, Heizung, Strom und Rücklage für Instandhaltung, grob 1 % des Werts pro Jahr). Am besten rückwärts rechnen: Netto → maximale Rate → Darlehen → leistbarer Kaufpreis.</p>
+        <div class="table-wrap" style="max-height:none;">
+          <table>
+            <tbody>
+              <tr>
+                <td style="text-align:left;">Haushaltsnetto pro Monat (€)</td>
+                <td><input type="number" id="haushaltsnetto" value="0" step="100" min="0" class="split-zins-input" style="width:110px;"></td>
+              </tr>
+              <tr>
+                <td style="text-align:left;">Belastungsgrenze Rate (% vom Netto)</td>
+                <td><input type="number" id="belastungPct" value="35" step="1" min="10" max="60" class="split-zins-input"></td>
+              </tr>
+              <tr>
+                <td style="text-align:left;">Laufende Hauskosten (% vom Kaufpreis pro Jahr)</td>
+                <td><input type="number" id="laufendePct" value="1.1" step="0.1" min="0" max="5" class="split-zins-input"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note" id="leistbarkeitErgebnis" style="margin-top:10px;"></div>
+        <div class="note" style="margin-top:6px;">Richtwerte zur Orientierung, keine Kreditentscheidung. 1,1 % ergeben bei 500.000 € rund 460 € im Monat.</div>
       </div>
       <div class="info-box" id="sonderkuendigungInfo" style="display:none; margin-bottom:22px;">
         Nach <strong>10 Jahren</strong> seit vollständiger Auszahlung des Kredits darfst du gemäß <strong>§ 489 BGB</strong> jederzeit mit einer Frist von 6 Monaten kündigen und umschulden – unabhängig davon, wie lange deine Zinsbindung eigentlich noch läuft. Das gilt für jeden Kredit, egal ob 15, 20 oder 30 Jahre Zinsbindung vereinbart wurden. Vorteil: Läuft dann woanders ein besserer Zins, kannst du wechseln, ohne eine Vorfälligkeitsentschädigung an deine bisherige Bank zahlen zu müssen. Das ist ein <strong>zusätzliches Sicherheitsnetz</strong>, aber kein Grund, dich grundsätzlich gegen eine längere Zinsbindung zu entscheiden: Eine längere Bindung sichert dir umgekehrt auch länger einen festen Zins – gerade wenn du mit steigenden Zinsen rechnest, kann das sehr viel wert sein. Die Sonderkündigung ist die Option nach oben (bei fallenden Zinsen wechseln), die lange Bindung ist die Absicherung nach unten (bei steigenden Zinsen) – beides schließt sich nicht aus.
@@ -1140,7 +1173,7 @@
         <div class="note" style="margin-top:6px;">Näherungswerte zur Orientierung – abhängig von Ausbaustufe, Grundstück und Region können die tatsächlichen Kosten deutlich abweichen. „Übernehmen" addiert die Zusatzkosten einmalig auf den Kaufpreis oben; „Herausnehmen" macht das wieder rückgängig.</div>
       </div>
       <div class="info-box" id="kaufnebenkostenInfo" style="display:none; margin-bottom:22px;">
-        <p style="margin:0 0 14px;">Beim Immobilienkauf kommen zum Kaufpreis übliche <strong>Kaufnebenkosten</strong> dazu: Grunderwerbsteuer, Notar- &amp; Grundbuchkosten sowie ggf. Maklerprovision. Anders als Baunebenkosten werden diese von der Bank in der Regel <strong>nicht mitfinanziert</strong> – du brauchst dafür zusätzliches Eigenkapital, on top zu dem, was du für den Kaufpreis einsetzt.</p>
+        <p style="margin:0 0 14px;">Beim Immobilienkauf kommen zum Kaufpreis übliche <strong>Kaufnebenkosten</strong> dazu: Grunderwerbsteuer, Notar- &amp; Grundbuchkosten sowie ggf. Maklerprovision. Anders als Baunebenkosten werden diese von der Bank in der Regel <strong>nicht mitfinanziert</strong> – du brauchst dafür zusätzliches Eigenkapital, on top zu dem, was du für den Kaufpreis einsetzt. Ist oben „Kaufnebenkosten zuerst aus dem Eigenkapital bezahlen“ an, zieht der Rechner diese Summe von deinem Eigenkapital ab, bevor der Rest den Kredit senkt.</p>
         <div class="table-wrap" style="max-height:none;">
           <table>
             <thead>
@@ -1157,9 +1190,14 @@
                 <td id="grunderwerbsteuerBetrag">–</td>
               </tr>
               <tr>
-                <td style="text-align:left;">Notar &amp; Grundbuch</td>
+                <td style="text-align:left;">Notar</td>
                 <td><input type="number" id="notarPct" value="1.5" step="0.1" min="0" max="5" class="split-zins-input"></td>
                 <td id="notarBetrag">–</td>
+              </tr>
+              <tr>
+                <td style="text-align:left;">Grundbuch</td>
+                <td><input type="number" id="grundbuchPct" value="0.5" step="0.1" min="0" max="3" class="split-zins-input"></td>
+                <td id="grundbuchBetrag">–</td>
               </tr>
               <tr>
                 <td style="text-align:left;">Makler<br><span style="color:var(--fog-dim); font-size:10px;">je nach Bundesland, oft hälftig geteilt</span></td>
@@ -1197,6 +1235,7 @@
           </table>
         </div>
         <div class="note" id="tranchenSumme" style="margin-top:10px;"></div>
+        <div class="note" style="margin-top:6px;">Die Tabelle zeigt, wie sich dein Kredit auf die Stufen verteilt (wichtig für die Splitt-Finanzierung). Der Zinsvorschlag oben nutzt dagegen die Stufe des gesamten Kredits.</div>
         <div class="note" style="margin-top:6px;">Die Aufschläge sind grobe Orientierungswerte ggü. der Bestkondition (Beleihung bis 60 %) – keine verbindlichen Bankkonditionen. Die tatsächliche Staffelung unterscheidet sich von Bank zu Bank.</div>
       </div>
 
@@ -1354,10 +1393,30 @@ function berechneTranchenAufteilung(kaufpreis, kreditbetrag){
     return {...b, betrag};
   }).filter(t => t.betrag > 0.5);
 }
+// Zinsaufschlag für den gesamten Kredit nach Beleihungsstufe (Banken bepreisen den ganzen Kredit nach seiner Stufe)
+const BELEIHUNG_STUFEN = [
+  {bis: 60, aufschlag: 0.00},
+  {bis: 80, aufschlag: 0.15},
+  {bis: 90, aufschlag: 0.40},
+  {bis: 100, aufschlag: 0.70},
+  {bis: Infinity, aufschlag: 1.10}
+];
 function berechneBeleihungsaufschlag(kaufpreis, kreditbetrag){
-  const tranchen = berechneTranchenAufteilung(kaufpreis, kreditbetrag);
-  if (tranchen.length === 0) return 0;
-  return tranchen.reduce((sum, t) => sum + t.betrag * t.aufschlag, 0) / kreditbetrag;
+  if (kaufpreis <= 0 || kreditbetrag <= 0) return 0;
+  const beleihung = kreditbetrag / kaufpreis * 100;
+  return BELEIHUNG_STUFEN.find(s => beleihung <= s.bis + 1e-9).aufschlag;
+}
+// Kaufnebenkosten (Grunderwerbsteuer, Notar, Grundbuch, Makler) in Prozent und Euro
+function kaufnebenkostenPct(){
+  return ['grunderwerbsteuerPct','notarPct','grundbuchPct','maklerPct']
+    .reduce((s, id) => { const v = parseFloat(el(id).value); return s + (isNaN(v) ? 0 : v); }, 0);
+}
+function kaufnebenkostenBetrag(kaufpreis){
+  return el('knkEinrechnen').checked ? kaufpreis * kaufnebenkostenPct() / 100 : 0;
+}
+// Darlehen: Kaufpreis plus Nebenkosten (falls eingerechnet) minus Eigenkapital
+function berechneKredit(kaufpreis, eigenkapital){
+  return Math.max(kaufpreis + kaufnebenkostenBetrag(kaufpreis) - eigenkapital, 0);
 }
 function renderTranchen(kaufpreis, kreditbetrag){
   const body = el('tranchenBody');
@@ -1391,16 +1450,21 @@ function berechneTilgungsplan(kreditbetrag, zinsPct, tilgungPct, maxJahre, sonde
   const rows = [];
   let jahr = 0;
   let gesamtzinsen = 0;
+  const monatsrate = annuitaet / 12;
+  const monatszins = zinsPct / 100 / 12;
   while (restschuld > 1 && jahr < maxJahre && annuitaet > 0) {
     jahr++;
     const start = restschuld;
-    let zinsen = restschuld * zinsPct / 100;
-    let tilgungBetrag = annuitaet - zinsen;
-    if (tilgungBetrag > restschuld) {
-      tilgungBetrag = restschuld;
-      zinsen = Math.min(zinsen, annuitaet - tilgungBetrag);
+    // Banken verrechnen monatlich: Zinsen je Monat auf die aktuelle Restschuld
+    let zinsen = 0, tilgungBetrag = 0;
+    for (let m = 0; m < 12 && restschuld > 0.005; m++) {
+      const zm = restschuld * monatszins;
+      const tm = Math.min(Math.max(monatsrate - zm, 0), restschuld);
+      zinsen += zm;
+      tilgungBetrag += tm;
+      restschuld -= tm;
     }
-    restschuld = Math.max(restschuld - tilgungBetrag, 0);
+    restschuld = Math.max(restschuld, 0);
     let sonderBetrag = 0;
     if (sondertilgung > 0 && restschuld > 0) {
       sonderBetrag = Math.min(sondertilgung, restschuld);
@@ -1539,21 +1603,25 @@ function renderKaufnebenkosten(kaufpreis){
   const grunderwerbPct = parseFloat(el('grunderwerbsteuerPct').value);
   const notarPct = parseFloat(el('notarPct').value);
   const maklerPct = parseFloat(el('maklerPct').value);
+  const grundbuchPct = parseFloat(el('grundbuchPct').value);
   const grunderwerbEff = isNaN(grunderwerbPct) ? 0 : grunderwerbPct;
   const notarEff = isNaN(notarPct) ? 0 : notarPct;
   const maklerEff = isNaN(maklerPct) ? 0 : maklerPct;
+  const grundbuchEff = isNaN(grundbuchPct) ? 0 : grundbuchPct;
 
   const grunderwerbBetrag = kaufpreis * grunderwerbEff / 100;
   const notarBetrag = kaufpreis * notarEff / 100;
   const maklerBetrag = kaufpreis * maklerEff / 100;
-  const summe = grunderwerbBetrag + notarBetrag + maklerBetrag;
+  const grundbuchBetrag = kaufpreis * grundbuchEff / 100;
+  const summe = grunderwerbBetrag + notarBetrag + maklerBetrag + grundbuchBetrag;
+  el('grundbuchBetrag').textContent = kaufpreis > 0 ? fmtEUR(grundbuchBetrag) : '–';
 
   el('grunderwerbsteuerBetrag').textContent = kaufpreis > 0 ? fmtEUR(grunderwerbBetrag) : '–';
   el('notarBetrag').textContent = kaufpreis > 0 ? fmtEUR(notarBetrag) : '–';
   el('maklerBetrag').textContent = kaufpreis > 0 ? fmtEUR(maklerBetrag) : '–';
 
   if (kaufpreis > 0) {
-    el('kaufnebenkostenSumme').innerHTML = `Kaufnebenkosten gesamt: <strong>${fmtEUR(summe)}</strong> (${(grunderwerbEff + notarEff + maklerEff).toLocaleString('de-DE')} % vom Kaufpreis) · zusätzlich zum Kaufpreis nötig, i. d. R. aus Eigenkapital zu zahlen. Insgesamt einzuplanendes Kapital: <strong>${fmtEUR(kaufpreis + summe)}</strong>.`;
+    el('kaufnebenkostenSumme').innerHTML = `Kaufnebenkosten gesamt: <strong>${fmtEUR(summe)}</strong> (${(grunderwerbEff + notarEff + grundbuchEff + maklerEff).toLocaleString('de-DE')} % vom Kaufpreis) · zusätzlich zum Kaufpreis nötig, i. d. R. aus Eigenkapital zu zahlen. Insgesamt einzuplanendes Kapital: <strong>${fmtEUR(kaufpreis + summe)}</strong>.`;
   } else {
     el('kaufnebenkostenSumme').textContent = '';
   }
@@ -1606,8 +1674,18 @@ function calculate(){
   el('sondertilgungVal').textContent = fmtEUR(sondertilgung);
   el('auszahlungskursVal').textContent = auszahlungskurs.toLocaleString('de-DE', {minimumFractionDigits:1}) + ' %';
 
-  const kreditbetrag = Math.max(kaufpreis - eigenkapital, 0);
+  const kreditbetrag = berechneKredit(kaufpreis, eigenkapital);
   el('kreditbetrag').textContent = fmtEUR(kreditbetrag);
+  const knkVoll = kaufpreis * kaufnebenkostenPct() / 100;
+  const knk = kaufnebenkostenBetrag(kaufpreis);
+  el('knkKurz').textContent = fmtEUR(knkVoll);
+  el('gesamtkostenKauf').textContent = fmtEUR(kaufpreis + knkVoll);
+  const notarterminBedarf = knkVoll + kaufpreis * 0.2;
+  el('notarterminHinweis').innerHTML = kaufpreis > 0
+    ? (el('knkEinrechnen').checked
+        ? `Faustregel am Notartermin: Nebenkosten plus 20 % vom Kaufpreis = <strong>${fmtEUR(notarterminBedarf)}</strong>. ${eigenkapital >= notarterminBedarf ? 'Dein Eigenkapital reicht dafür.' : 'Dir fehlen dafür noch ' + fmtEUR(notarterminBedarf - eigenkapital) + '.'}`
+        : `Kaufnebenkosten von ${fmtEUR(knkVoll)} sind nicht eingerechnet – du zahlst sie also zusätzlich zum Eigenkapital oben.`)
+    : '';
 
   // Tilgungsplan berechnen (inkl. jährlicher Sondertilgung, sofern angegeben)
   const {rows, gesamtzinsen, annuitaet} = berechneTilgungsplan(kreditbetrag, zinsPct, tilgungPct, 60, sondertilgung);
@@ -1637,6 +1715,7 @@ function calculate(){
   el('statLaufzeit').textContent = (annuitaet > 0 && jahr < maxJahre) ? jahr + ' Jahre' : '> ' + maxJahre + ' Jahre';
   el('statZinsen').textContent = fmtEUR(gesamtzinsen);
   el('statGesamt').textContent = fmtEUR(kreditbetrag + gesamtzinsen);
+  renderLeistbarkeit(kaufpreis, eigenkapital, monatsrate, zinsPct, tilgungPct);
 
   // Restschuld zum Ende der Zinsbindung
   let restschuldNachBindung;
@@ -1667,6 +1746,33 @@ function calculate(){
   letzteZinsbindung = zinsbindung;
   letzteSonderkuendigungRelevant = sonderkuendigungRelevant;
   renderChart(rows, kreditbetrag, zinsbindung, sonderkuendigungRelevant, (el('splitEnableToggle').checked && el('splitChartToggle').checked) ? letzteSplitSeries : null);
+}
+
+// Leistbarkeit: Rate im Verhältnis zum Haushaltsnetto, laufende Kosten und Rückwärtsrechnung zum leistbaren Kaufpreis
+function renderLeistbarkeit(kaufpreis, eigenkapital, monatsrate, zinsPct, tilgungPct){
+  const ziel = el('leistbarkeitErgebnis');
+  const netto = parseFloat(el('haushaltsnetto').value) || 0;
+  const grenze = parseFloat(el('belastungPct').value) || 35;
+  const laufendPct = parseFloat(el('laufendePct').value) || 0;
+  const laufend = kaufpreis * laufendPct / 100 / 12;
+  const noetigesNetto = monatsrate / (grenze / 100);
+  let html = `Laufende Hauskosten: ca. <strong>${fmtEUR(laufend)}</strong> pro Monat zusätzlich zur Rate. `
+    + `Für ${fmtEURprec(monatsrate)} Rate bei ${grenze.toLocaleString('de-DE')} % Belastung brauchst du rund <strong>${fmtEUR(noetigesNetto)}</strong> Haushaltsnetto.`;
+  if (netto > 0) {
+    const quote = monatsrate / netto * 100;
+    const rest = netto - monatsrate - laufend;
+    const maxRate = netto * grenze / 100;
+    const annuitaetPct = zinsPct + tilgungPct;
+    const maxKredit = annuitaetPct > 0 ? maxRate * 12 / (annuitaetPct / 100) : 0;
+    const knkQuote = el('knkEinrechnen').checked ? kaufnebenkostenPct() / 100 : 0;
+    const maxKaufpreis = (maxKredit + eigenkapital) / (1 + knkQuote);
+    const status = quote <= grenze ? 'im Rahmen' : (quote <= 40 ? 'knapp, über deiner Grenze' : 'deutlich zu hoch');
+    html += `<br>Deine Rate entspricht <strong>${quote.toLocaleString('de-DE',{maximumFractionDigits:1})} %</strong> deines Nettos (${status}). Nach Rate und laufenden Kosten bleiben <strong>${fmtEUR(rest)}</strong> im Monat.`
+      + `<br>Rückwärts gerechnet: maximale Rate ${fmtEUR(maxRate)} → Darlehen bis ca. ${fmtEUR(maxKredit)} → leistbarer Kaufpreis ca. <strong>${fmtEUR(maxKaufpreis)}</strong> (mit deinem Eigenkapital, Zins und Tilgung von oben).`;
+  } else {
+    html += '<br>Trag dein Haushaltsnetto ein, dann siehst du die Belastungsquote und den leistbaren Kaufpreis.';
+  }
+  ziel.innerHTML = html;
 }
 
 function renderTable(rows, zinsbindung, sonderkuendigungRelevant){
@@ -1824,13 +1930,13 @@ function renderChart(rows, kreditbetrag, zinsbindung, sonderkuendigungRelevant, 
 }
 
 // Marktübliche Topkonditionen nach Zinsbindung (Näherungswerte, Stand: Juli 2026, Quelle u.a. Dr. Klein / Bundesbank MFI-Zinsstatistik)
-const MARKTZINS_STANDARD_STAND = 'Juli 2026';
+const MARKTZINS_STANDARD_STAND = 'November 2026';
 const MARKTZINS_STANDARD = [
-  {jahre: 5,  zins: 3.4},
-  {jahre: 10, zins: 3.7},
-  {jahre: 15, zins: 3.9},
-  {jahre: 20, zins: 4.0},
-  {jahre: 30, zins: 4.1}
+  {jahre: 5,  zins: 3.7},
+  {jahre: 10, zins: 4.0},
+  {jahre: 15, zins: 4.2},
+  {jahre: 20, zins: 4.3},
+  {jahre: 30, zins: 4.4}
 ];
 const RATE_KEY = 'baufi_marktzins_v1';
 function ladeRatesOverride(){
@@ -1876,7 +1982,7 @@ function aktualisiereZinsHinweis(){
   const basiszins = marktzinsFuer(jahre);
   const kaufpreis = parseTausender(el('kaufpreis').value);
   const eigenkapital = parseTausender(el('eigenkapital').value);
-  const kreditbetrag = Math.max(kaufpreis - eigenkapital, 0);
+  const kreditbetrag = berechneKredit(kaufpreis, eigenkapital);
   const aufschlag = berechneBeleihungsaufschlag(kaufpreis, kreditbetrag);
   const vorschlag = Math.round((basiszins + aufschlag) * 20) / 20; // auf 0,05 runden
   const beleihungPct = kaufpreis > 0 ? Math.round((kreditbetrag/kaufpreis)*100) : 0;
@@ -1917,7 +2023,7 @@ aktualisiereStandHinweis();
 
 el('btnEkVorschlag').addEventListener('click', () => {
   const kaufpreis = parseTausender(el('kaufpreis').value);
-  const vorschlag = Math.round(kaufpreis * 0.25 / 1000) * 1000;
+  const vorschlag = Math.round((kaufpreis * 0.25 + kaufnebenkostenBetrag(kaufpreis)) / 1000) * 1000;
   el('eigenkapital').value = formatTausender(vorschlag);
   el('eigenkapitalRange').value = vorschlag;
   aktualisiereZinsHinweis();
@@ -2005,7 +2111,12 @@ function aktuelleWerte(){
     splitTilgung3: el('splitTilgung3').value,
     grunderwerbsteuerPct: el('grunderwerbsteuerPct').value,
     notarPct: el('notarPct').value,
+    grundbuchPct: el('grundbuchPct').value,
     maklerPct: el('maklerPct').value,
+    knkEinrechnen: el('knkEinrechnen').checked,
+    haushaltsnetto: el('haushaltsnetto').value,
+    belastungPct: el('belastungPct').value,
+    laufendePct: el('laufendePct').value,
     notizen: el('notizenFeld').value,
     savedAt: new Date().toISOString()
   };
@@ -2056,6 +2167,12 @@ function projektLaden(name){
   el('grunderwerbsteuerPct').value = p.grunderwerbsteuerPct !== undefined ? p.grunderwerbsteuerPct : 5;
   el('notarPct').value = p.notarPct !== undefined ? p.notarPct : 1.5;
   el('maklerPct').value = p.maklerPct !== undefined ? p.maklerPct : 3.57;
+  // Ältere Projekte: dort enthielt „Notar" auch das Grundbuch, daher Grundbuch 0
+  el('grundbuchPct').value = p.grundbuchPct !== undefined ? p.grundbuchPct : (p.notarPct !== undefined ? 0 : 0.5);
+  el('knkEinrechnen').checked = p.knkEinrechnen !== undefined ? !!p.knkEinrechnen : true;
+  el('haushaltsnetto').value = p.haushaltsnetto !== undefined ? p.haushaltsnetto : 0;
+  el('belastungPct').value = p.belastungPct !== undefined ? p.belastungPct : 35;
+  el('laufendePct').value = p.laufendePct !== undefined ? p.laufendePct : 1.1;
   el('projektName').value = name;
   aktualisiereZinsHinweis();
   // Split-Zinssätze übernehmen, falls im Projekt gespeichert (ältere Projekte: automatisch neu schätzen)
@@ -2228,7 +2345,12 @@ el('projektImportInput').addEventListener('change', (e) => {
       splitTilgung3: daten.splitTilgung3,
       grunderwerbsteuerPct: daten.grunderwerbsteuerPct,
       notarPct: daten.notarPct,
+      grundbuchPct: daten.grundbuchPct,
       maklerPct: daten.maklerPct,
+      knkEinrechnen: daten.knkEinrechnen,
+      haushaltsnetto: daten.haushaltsnetto,
+      belastungPct: daten.belastungPct,
+      laufendePct: daten.laufendePct,
       notizen: daten.notizen,
       savedAt: new Date().toISOString()
     };
@@ -2290,11 +2412,20 @@ el('btnSplitReset').addEventListener('click', () => {
     renderBaunebenkosten(parseTausender(el('kaufpreis').value));
   });
 });
-['grunderwerbsteuerPct','notarPct','maklerPct'].forEach(id => {
+['grunderwerbsteuerPct','notarPct','grundbuchPct','maklerPct'].forEach(id => {
   el(id).addEventListener('input', () => {
-    renderKaufnebenkosten(parseTausender(el('kaufpreis').value));
+    aktualisiereZinsHinweis();
+    calculate();
   });
 });
+el('knkEinrechnen').addEventListener('change', () => {
+  aktualisiereZinsHinweis();
+  calculate();
+});
+['haushaltsnetto','belastungPct','laufendePct'].forEach(id => {
+  el(id).addEventListener('input', () => calculate());
+});
+toggleBox('btnLeistbarkeitToggle', 'leistbarkeitInfo', 'Leistbarkeit & laufende Kosten ▾', 'Leistbarkeit & laufende Kosten ▴');
 
 el('btnBaunebenkostenUebernehmen').addEventListener('click', () => {
   if (baunebenkostenImKaufpreis) return;
@@ -2334,7 +2465,7 @@ document.querySelectorAll('.chip[data-ziel]').forEach(chip => {
   chip.addEventListener('click', () => {
     const ziel = parseFloat(chip.dataset.ziel);
     const kaufpreis = parseTausender(el('kaufpreis').value);
-    const eigenkapital = Math.max(Math.round(kaufpreis * (1 - ziel/100) / 1000) * 1000, 0);
+    const eigenkapital = Math.max(Math.round((kaufpreis * (1 - ziel/100) + kaufnebenkostenBetrag(kaufpreis)) / 1000) * 1000, 0);
     el('eigenkapital').value = formatTausender(eigenkapital);
     el('eigenkapitalRange').value = eigenkapital;
     aktualisiereZinsHinweis();
